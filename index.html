@@ -1,60 +1,794 @@
-function doGet(e) {
-  var params = e.parameter;
-  var userProcurado = params.usuario;
-  var senhaProcurada = params.senha;
-  
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("BD_Usuarios_Sistema");
-  
-  if (!sheet) {
-    return ContentService.createTextOutput(JSON.stringify({ "status": "erro", "mensagem": "Nenhum usuario cadastrado ainda." })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  var dados = sheet.getDataRange().getValues();
-  for (var i = 1; i < dados.length; i++) {
-    if (dados[i][0] == userProcurado && dados[i][1] == senhaProcurada) {
-      return ContentService.createTextOutput(JSON.stringify({ "status": "sucesso", "perm": dados[i][2] })).setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify({ "status": "erro", "mensagem": "Usuario ou senha incorretos." })).setMimeType(ContentService.MimeType.JSON);
-}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Engenharia Predial & PCM Inteligente</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: #121824; color: #f8fafc; padding: 15px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 25px; color: #38bdf8; position: relative; }
+        header h1 { font-size: 26px; margin-bottom: 5px; }
+        header p { font-size: 14px; color: #94a3b8; margin-bottom: 15px; }
+        
+        /* TELA DE LOGIN ESCURA */
+        #tela-login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 99999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .login-box { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; width: 100%; max-width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .login-box h2 { text-align: center; color: #38bdf8; margin-bottom: 20px; font-size: 22px; }
+        .login-box button { width: 100%; background: #0284c7; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 15px; }
+        .login-box button:hover { background: #0369a1; }
+        .login-box button:disabled { background: #334155; color: #94a3b8; cursor: not-allowed; }
+        
+        .loading-banner { background: #0369a1; color: #e0f2fe; padding: 12px; text-align: center; border-radius: 8px; font-weight: bold; margin-bottom: 20px; display: none; }
+        
+        .actions-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 5px; flex-wrap: wrap; }
+        .btn-export-master { background-color: #16a34a; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+        .btn-export-master:hover { background-color: #15803d; }
+        .btn-import-master { background-color: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+        .btn-import-master:hover { background-color: #1d4ed8; }
+        .btn-save-cloud { background-color: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+        .btn-save-cloud:hover { background-color: #0369a1; }
 
-function doPost(e) {
-  var data = JSON.parse(e.postData.contents);
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  // AÇÃO ESPECÍFICA DE CRIAÇÃO DE USUÁRIOS NA NUVEM
-  if (data.acao === "criarUsuario") {
-    var sheetUsers = ss.getSheetByName("BD_Usuarios_Sistema");
-    if (!sheetUsers) {
-      sheetUsers = ss.insertSheet("BD_Usuarios_Sistema");
-      sheetUsers.appendRow(["Usuario", "Senha", "Permissao"]);
+        .tab-menu { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 15px; }
+        .tab-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .tab-btn:hover { background: #334155; color: #fff; }
+        .tab-btn.active { background: #0284c7; color: white; border-color: #38bdf8; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .sub-tab-menu { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px; background: #0f172a; padding: 6px; border-radius: 8px; border: 1px solid #334155; }
+        .sub-tab-btn { background: transparent; border: none; color: #94a3b8; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .sub-tab-btn.active { background: #334155; color: #38bdf8; }
+
+        .card { background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 20px; border: 1px solid #334155; }
+        h3 { font-size: 18px; margin-bottom: 15px; color: #f1f5f9; border-bottom: 2px solid #334155; padding-bottom: 6px; }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 15px; }
+        label { font-size: 14px; font-weight: 600; color: #cbd5e1; }
+        input[type="text"], input[type="date"], select, textarea { padding: 10px; font-size: 15px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 8px; width: 100%; }
+        input[type="text"]:focus, input[type="date"]:focus, select:focus, textarea:focus { outline: 1px solid #38bdf8; }
+        
+        .maint-layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media(min-width: 768px) { .maint-layout { grid-template-columns: 1fr 2fr; } }
+        
+        .client-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; margin-bottom: 20px; overflow: hidden; }
+        .client-header { background: #1e293b; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; cursor: pointer; }
+        .client-title { font-weight: bold; font-size: 17px; color: #38bdf8; }
+        .client-body { padding: 15px; display: none; background: #111827; }
+        .client-body.active { display: block; }
+        
+        .sys-box { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 15px; }
+        .sys-box .sys-header { font-weight: bold; color: #e5e7eb; font-size: 14px; margin-bottom: 10px; border-bottom: 1px dashed #4b5563; display: flex; justify-content: space-between; }
+        
+        .andar-container { background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+        .andar-header-title { font-size: 13px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+
+        .maint-section-title { font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin: 6px 0 4px 0; display: flex; align-items: center; gap: 4px; }
+        .maint-section-title.preventiva { color: #10b981; }
+        .maint-section-title.corretiva { color: #f43f5e; }
+
+        .equip-row { background: #1e293b; padding: 10px; border: 1px solid #334155; border-radius: 6px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+        .equip-top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        .equip-name { font-weight: bold; color: #f1f5f9; }
+        .equip-inputs-grid { display: grid; grid-template-columns: 1fr; gap: 6px; width: 100%; }
+        @media(min-width: 500px) { .equip-inputs-grid { grid-template-columns: 120px 1fr; } }
+        
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; text-align: center; cursor: pointer; }
+        .badge-ok { background: #15803d; color: #dcfce7; }
+        .badge-pending { background: #b45309; color: #fef9c3; }
+
+        .agenda-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .agenda-table th, .agenda-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
+        .agenda-table th { background: #0f172a; color: #38bdf8; font-weight: bold; }
+        .agenda-table tr:hover { background: #111827; }
+
+        .client-chart-container { background: #0f172a; border-radius: 8px; padding: 10px; margin-top: 15px; border: 1px solid #334155; height: 160px; position: relative; }
+
+        .obra-item { background: #1e293b; border: 1px solid #334155; border-radius: 10px; margin-bottom: 15px; overflow: hidden; }
+        .obra-header { background: #1e293b; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; cursor: pointer; user-select: none; }
+        .obra-titulo { font-weight: bold; font-size: 18px; color: #f8fafc; }
+        .progress-container { width: 130px; background-color: #334155; border-radius: 20px; overflow: hidden; position: relative; height: 20px; text-align: center; }
+        .progress-bar { background-color: #10b981; height: 100%; width: 0%; transition: width 0.3s ease; }
+        .progress-text { position: absolute; width: 100%; top: 0; left: 0; font-size: 12px; font-weight: bold; color: #ffffff; line-height: 20px; }
+        .obra-corpo { padding: 20px; display: none; background: #111827; }
+        .obra-corpo.active { display: block; }
+        .divisao-macro { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        .divisao-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px dashed #4b5563; }
+        .subdivisao-item { background: #111827; padding: 10px; border: 1px solid #374151; border-radius: 6px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
+        .subdivisao-info { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #f3f4f6; }
+        
+        .btn-danger { background-color: #dc2626; padding: 8px 15px; font-size: 14px; border: none; border-radius: 8px; color: white; cursor: pointer; }
+        .btn-danger:hover { background-color: #b91c1c; }
+        .btn-delete-sub { background: none; border: none; color: #f87171; cursor: pointer; font-size: 13px; font-weight: bold; margin-left: 10px; }
+        .sub-form { display: flex; gap: 8px; margin-top: 10px; }
+        .sub-form input, .sub-form textarea, .sub-form select { flex: 1; padding: 8px; font-size: 14px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 6px; }
+        .sub-form button { padding: 8px 12px; font-size: 13px; background-color: #4b5563; color: #f3f4f6; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        
+        .lote-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+        .lote-title { font-size: 11px; font-weight: bold; color: #38bdf8; text-transform: uppercase; }
+
+        /* Classes de Controle de Permissão */
+        .admin-only, .operar-only { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="tela-login">
+    <div class="login-box">
+        <h2>Acesso à Plataforma</h2>
+        <div class="form-group">
+            <label>Usuário</label>
+            <input type="text" id="userInput" placeholder="Digite seu usuário">
+        </div>
+        <div class="form-group">
+            <label>Senha</label>
+            <input type="password" id="passInput" placeholder="Digite sua senha">
+        </div>
+        <button onclick="checarLogin()">Entrar no Sistema</button>
+    </div>
+</div>
+
+<div class="container">
+    <header>
+        <h1>Plataforma de Engenharia Predial</h1>
+        <p>Conexão Sincronizada Direta com o Google Apps Script & Drive</p>
+        <div id="loadingBanner" class="loading-banner"></div>
+        
+        <div class="actions-bar">
+            <button class="btn-export-master" onclick="exportarBancoParaExcel()">💾 Exportar Banco (.XLSX)</button>
+            <button class="btn-import-master operar-only" onclick="document.getElementById('inputImportExcel').click()">📂 Importar Planilha Local</button>
+            <input type="file" id="inputImportExcel" accept=".xlsx, .xls" style="display: none;" onchange="importarBancoDeExcel(this)">
+            <button class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
+        </div>
+    </header>
+
+    <div class="card admin-only" style="margin-bottom: 20px;">
+        <h3>🔑 Gerenciador de Usuários do Sistema (Acesso Master)</h3>
+        <div class="sub-form">
+            <input type="text" id="newUsername" placeholder="Nome do novo usuário">
+            <input type="text" id="newPassword" placeholder="Senha do novo usuário">
+            <select id="newUserPerm" style="max-width: 250px;">
+                <option value="ver">Apenas Ver (Funcionários)</option>
+                <option value="ver,operar">Ver e Operar (Engenheiros / PCM)</option>
+            </select>
+            <button onclick="criarNovoUsuario()" style="background: #16a34a;">+ Criar Usuário</button>
+        </div>
+    </div>
+
+    <div class="tab-menu">
+        <button class="tab-btn active" onclick="alternarAba('obras', this)">📁 Obras em Andamento</button>
+        <button class="tab-btn" onclick="alternarAba('manutencao', this); renderizarMaint(); renderizarAgendaPCM();">🔧 Planta de Manutenção & PCM</button>
+    </div>
+
+    <div id="tab-obras" class="tab-content active">
+        <div class="card operar-only">
+            <h3>Adicionar Nova Obra</h3>
+            <div class="sub-form">
+                <input type="text" id="nomeObra" placeholder="Ex: Shopping Iguatemi - Expansão BMS">
+                <button onclick="criarObra()">Cadastrar Obra</button>
+            </div>
+        </div>
+        <div id="listaObras"></div>
+    </div>
+
+    <div id="tab-manutencao" class="tab-content">
+        <div class="sub-tab-menu">
+            <button class="sub-tab-btn active" onclick="alternarSubAba('inventario', this)">🛠️ Ativos e Sistemas</button>
+            <button class="sub-tab-btn" onclick="alternarSubAba('agenda', this); renderizarAgendaPCM();">📅 Agenda Anual de Visitas (PCM)</button>
+        </div>
+
+        <div id="sub-inventario" class="sub-tab-content" style="display: block;">
+            <div class="maint-layout">
+                <div class="card operar-only">
+                    <h3>Cadastrar Planta / Contrato</h3>
+                    <div class="form-group">
+                        <label>Nome do Cliente / Site</label>
+                        <input type="text" id="maintClienteNome" placeholder="Ex: Hospital Sírio Libanês">
+                    </div>
+                    <div class="form-group">
+                        <label>Periodicidade das Visitas</label>
+                        <select id="maintPeriodicidade">
+                            <option value="1">Mensal (12 Visitas/Ano)</option>
+                            <option value="2">Bimestral (6 Visitas/Ano)</option>
+                            <option value="3">Trimestral (4 Visitas/Ano)</option>
+                            <option value="6">Semestral (2 Visitas/Ano)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Data de Início das Visitas</label>
+                        <input type="date" id="maintDataInicio">
+                    </div>
+                    <button onclick="criarClienteManutencao()" style="width: 100%;">Adicionar Contrato</button>
+                </div>
+
+                <div>
+                    <div class="card" style="margin-bottom: 15px;"><h3>🛠️ Inventário de Ativos & Status</h3></div>
+                    <div id="listaClientesManutencao"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="sub-agenda" class="sub-tab-content" style="display: none;">
+            <div class="card">
+                <h3>📅 Cronograma Anual Automatizado de Manutenção Predial</h3>
+                <div style="overflow-x: auto;">
+                    <table class="agenda-table">
+                        <thead>
+                            <tr>
+                                <th>Cliente / Planta</th>
+                                <th>Ordem da Visita</th>
+                                <th>Data Programada</th>
+                                <th>Dia da Semana</th>
+                                <th>Status Base</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpoTabelaAgenda"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbxlO2Z07DpLK75ouzwqZINXktm3fyFcumshjcuPRFK03MbRr0lZECSJm3O0R9MXCwsiAQ/exec";
+
+    let obras = [];
+    let clientesMaint = [];
+    let listaGraficosClientes = {};
+    let isSincronizando = false;
+    let usuarioAtualPermissoes = "ver"; 
+
+    const divConfig = [
+        { nome: 'Cabeamento', peso: 0.18 }, { nome: 'Conectorização', peso: 0.18 },
+        { nome: 'Comissionamento', peso: 0.18 }, { nome: 'Lógica (DDC)', peso: 0.18 },
+        { nome: 'Supervisório', peso: 0.18 }, { nome: 'Documentação', peso: 0.10 }
+    ];
+
+    // NOVA FUNÇÃO DE LOGIN VIA NUVEM
+    async function checarLogin() {
+        const u = document.getElementById("userInput").value.trim();
+        const p = document.getElementById("passInput").value.trim();
+        const btn = document.querySelector("#tela-login button");
+
+        if (!u || !p) return alert("Por favor, preencha todos os campos.");
+
+        // 1. Validação estática imediata do Admin Master
+        if (u === "admin" && p === "Rafa180993") {
+            usuarioAtualPermissoes = "master";
+            document.getElementById("tela-login").style.display = "none";
+            document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
+            document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
+            inicializarApp();
+            return;
+        }
+
+        // 2. Validação na nuvem em tempo real (para celulares e outros PCs)
+        btn.disabled = true;
+        btn.innerText = "Autenticando...";
+
+        try {
+            let resposta = await fetch(URL_GOOGLE_API + "?usuario=" + encodeURIComponent(u) + "&senha=" + encodeURIComponent(p));
+            let resultado = await resposta.json();
+
+            if (resultado.status === "sucesso") {
+                usuarioAtualPermissoes = resultado.perm;
+                document.getElementById("tela-login").style.display = "none";
+                if (resultado.perm.includes("operar")) {
+                    document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
+                }
+                inicializarApp();
+            } else {
+                alert("⚠️ " + resultado.mensagem);
+                btn.disabled = false;
+                btn.innerText = "Entrar no Sistema";
+            }
+        } catch (erro) {
+            console.error(erro);
+            alert("❌ Erro de rede ao tentar autenticar. Tente novamente.");
+            btn.disabled = false;
+            btn.innerText = "Entrar no Sistema";
+        }
     }
-    sheetUsers.appendRow([data.username, data.password, data.perm]);
-    return ContentService.createTextOutput(JSON.stringify({"status": "sucesso"})).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  // PROCESSO NORMAL DE SALVAMENTO DE OBRAS E MANUTENÇÃO
-  var sheetObras = ss.getSheetByName("BD_Obras_Macro") || ss.insertSheet("BD_Obras_Macro");
-  var sheetClientes = ss.getSheetByName("BD_Manutencao_Plantas") || ss.insertSheet("BD_Manutencao_Plantas");
-  
-  sheetObras.clear();
-  sheetClientes.clear();
-  
-  sheetObras.appendRow(["ID", "Dados_JSON"]);
-  if(data.obras) {
-    data.obras.forEach(function(o) {
-      sheetObras.appendRow([o.id, JSON.stringify(o)]);
-    });
-  }
-  
-  sheetClientes.appendRow(["ID", "Dados_JSON"]);
-  if(data.clientes) {
-    data.clientes.forEach(function(c) {
-      sheetClientes.appendRow([c.id, JSON.stringify(c)]);
-    });
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify({"status": "sucesso"})).setMimeType(ContentService.MimeType.JSON);
-}
+
+    // NOVA FUNÇÃO DE CRIAÇÃO ENVIANDO DIRETO PARA O SHEETS
+    async function criarNovoUsuario() {
+        const u = document.getElementById("newUsername").value.trim();
+        const p = document.getElementById("newPassword").value.trim();
+        const perm = document.getElementById("newUserPerm").value;
+
+        if(!u || !p) return alert("Preencha usuário e senha!");
+
+        try {
+            await fetch(URL_GOOGLE_API, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ acao: "criarUsuario", username: u, password: p, perm: perm })
+            });
+            
+            alert("🎉 Usuário registrado na nuvem! Já pode ser usado em qualquer celular ou PC.");
+            document.getElementById("newUsername").value = "";
+            document.getElementById("newPassword").value = "";
+        } catch (erro) {
+            console.error(erro);
+            alert("❌ Falha ao salvar usuário na nuvem.");
+        }
+    }
+
+    async function inicializarApp() {
+        localStorage.removeItem("cache_obras");
+        localStorage.removeItem("cache_clientes");
+        obras = [];
+        clientesMaint = [];
+        
+        await carregarDadosDaNuvem(); 
+        inicializarSincronizacaoAutomatica();
+    }
+
+    function tratarDataSegura(rawVal) {
+        let hojeStr = new Date().toISOString().split("T")[0];
+        if (!rawVal) return hojeStr;
+        let stringData = String(rawVal).trim().split(" ")[0];
+        if (!isNaN(stringData) && stringData.length >= 4) {
+            let dataExcel = new Date((parseInt(stringData) - 25569) * 86400 * 1000);
+            if (!isNaN(dataExcel.getTime())) return dataExcel.toISOString().split("T")[0];
+        }
+        if (stringData.includes("/")) {
+            let partes = stringData.split("/");
+            if (partes.length === 3) {
+                if (partes[0].length === 4) return partes.join("-");
+                return `${partes[2]}-${partes[1]}-${partes[0]}`;
+            }
+        }
+        if (stringData.includes("-")) {
+            let partes = stringData.split("-");
+            if (partes.length === 3) {
+                if (partes[0].length === 4) return stringData;
+                return `${partes[2]}-${partes[1]}-${partes[0]}`;
+            }
+        }
+        return hojeStr;
+    }
+
+    function salvarBackupLocal() {
+        localStorage.setItem("cache_obras", JSON.stringify(obras));
+        localStorage.setItem("cache_clientes", JSON.stringify(clientesMaint));
+    }
+
+    function carregarBackupLocal() {
+        let cacheObras = localStorage.getItem("cache_obras");
+        let cacheClientes = localStorage.getItem("cache_clientes");
+        if(cacheObras) obras = JSON.parse(cacheObras);
+        if(cacheClientes) clientesMaint = JSON.parse(cacheClientes);
+    }
+
+    async function salvarEAtualizarPelaPlanilha() {
+        if (isSincronizando || usuarioAtualPermissoes === "ver") return;
+        isSincronizando = true;
+        const banner = document.getElementById("loadingBanner");
+        if(banner) { 
+            banner.style.display = "block"; 
+            banner.innerText = "💾 Gravando alterações com segurança no Google Sheets..."; 
+        }
+        try {
+            salvarBackupLocal();
+            let payload = {
+                obras: obras.map(o => ({ id: o.id, nome: o.nome, dados_divisores: JSON.stringify(o.divisores) })),
+                clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) }))
+            };
+
+            await fetch(URL_GOOGLE_API, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if(banner) banner.innerText = "🔄 Puxando base de dados consolidada...";
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            await carregarDadosDaNuvemBase(false);
+            alert("✅ Modificações gravadas e lidas da nuvem com sucesso!");
+        } catch (erro) {
+            console.error(erro);
+            alert("⚠️ Dados salvos localmente, mas houve falha na resposta do Google Drive.");
+        } finally {
+            if(banner) banner.style.display = "none";
+            isSincronizando = false;
+        }
+    }
+
+    async function salvarEAtualizarPelaPlanilhaSilencioso() {
+        if (isSincronizando || usuarioAtualPermissoes === "ver") return;
+        isSincronizando = true;
+        const banner = document.getElementById("loadingBanner");
+        if(banner) { 
+            banner.style.display = "block"; 
+            banner.innerText = "🛰️ Sincronização automática: Enviando dados para o Sheets..."; 
+        }
+        try {
+            salvarBackupLocal();
+            let payload = {
+                obras: obras.map(o => ({ id: o.id, nome: o.nome, dados_divisores: JSON.stringify(o.divisores) })),
+                clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) }))
+            };
+
+            await fetch(URL_GOOGLE_API, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            
+            await new Promise(resolve => setTimeout(resolve, 800));
+            await carregarDadosDaNuvemBase(true);
+        } catch (erro) {
+            console.error("Falha na sincronização automatizada de fundo:", erro);
+        } finally {
+            if(banner) banner.style.display = "none";
+            isSincronizando = false;
+        }
+    }
+
+    async function carregarDadosDaNuvemBase(isSilencioso) {
+        const banner = document.getElementById("loadingBanner");
+        if(banner && !isSilencioso) { 
+            banner.style.display = "block"; 
+            banner.innerText = "🛰️ Lendo histórico de dados salvos na nuvem..."; 
+        }
+        try {
+            let resposta = await fetch(URL_GOOGLE_API);
+            let json = await resposta.json();
+            
+            if (json.obras && json.obras.length > 0) {
+                obras = json.obras.map(o => ({
+                    id: o.id,
+                    nome: o.nome,
+                    divisores: o.dados_divisores ? JSON.parse(o.dados_divisores) : { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] }
+                }));
+            }
+            if (json.clientes && json.clientes.length > 0) {
+                clientesMaint = json.clientes.map(c => ({
+                    id: c.id,
+                    nome: c.nome,
+                    periodicidade: c.periodicidade || "1",
+                    dataInicio: tratarDataSegura(c.dataInicio),
+                    sistemas: c.dados_sistemas ? JSON.parse(c.dados_sistemas) : {}
+                }));
+            }
+            salvarBackupLocal();
+        } catch (erro) {
+            console.error("Falha ao ler do Drive:", erro);
+            if(!isSilencioso) carregarBackupLocal();
+        } finally {
+            renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
+            if(banner && !isSilencioso) banner.style.display = "none";
+        }
+    }
+
+    async function carregarDadosDaNuvem() {
+        await carregarDadosDaNuvemBase(false);
+    }
+
+    function inicializarSincronizacaoAutomatica() {
+        if (usuarioAtualPermissoes === "ver") return; 
+        setInterval(async () => {
+            await salvarEAtualizarPelaPlanilhaSilencioso();
+        }, 30000);
+    }
+
+    function importarBancoDeExcel(inputElement) {
+        if (usuarioAtualPermissoes === "ver") return;
+        const arquivo = inputElement.files[0];
+        if (!arquivo) return;
+        const banner = document.getElementById("loadingBanner");
+        if(banner) { banner.style.display = "block"; banner.innerText = "📂 Importando planilha local..."; }
+
+        const leitor = new FileReader();
+        leitor.onload = function(e) {
+            try {
+                const dadosBinarios = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(dadosBinarios, { type: 'array' });
+                
+                let obterDadosAba = (nomeAba) => {
+                    let ws = workbook.Sheets[nomeAba];
+                    if(!ws) return [];
+                    return XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+                };
+
+                let dadosMacro = obterDadosAba("BD_Obras_Macro");
+                let dadosSubs = obterDadosAba("BD_Obras_Subdivisoes");
+
+                obras = [];
+                for(let i = 1; i < dadosMacro.length; i++) {
+                    if(!dadosMacro[i][0]) continue;
+                    obras.push({
+                        id: dadosMacro[i][0], nome: dadosMacro[i][1],
+                        divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] }
+                    });
+                }
+                for(let i = 1; i < dadosSubs.length; i++) {
+                    if(!dadosSubs[i][0]) continue;
+                    let oId = dadosSubs[i][1]; let macro = dadosSubs[i][2]; let obra = obras.find(o => o.id == oId);
+                    if(obra && obra.divisores[macro]) {
+                        let rawPct = dadosSubs[i][4];
+                        let pct = 0;
+                        if(typeof rawPct === 'string') pct = parseInt(rawPct.replace("%", "")) || 0;
+                        else if(typeof rawPct === 'number') pct = rawPct <= 1 ? Math.round(rawPct * 100) : rawPct;
+                        obra.divisores[macro].push({ id: dadosSubs[i][0], nome: dadosSubs[i][3], porcentagem: pct });
+                    }
+                }
+                
+                salvarBackupLocal();
+                renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
+                alert("📊 Banco de dados carregado com sucesso.");
+                if(banner) banner.style.display = "none";
+            } catch(err) {
+                console.error(err);
+                alert("⚠️ Erro ao ler estrutura do XLSX.");
+                if(banner) banner.style.display = "none";
+            }
+        };
+        leitor.readAsArrayBuffer(arquivo);
+        inputElement.value = '';
+    }
+
+    function obterFeriadosAno(ano) {
+        let feriados = [`${ano}-01-01`, `${ano}-04-21`, `${ano}-05-01`, `${ano}-09-07`, `${ano}-10-12`, `${ano}-11-02`, `${ano}-11-15`, `${ano}-11-20`, `${ano}-12-25`];
+        let a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mesPascoa = Math.floor((h + l - 7 * m + 114) / 31), diaPascoa = ((h + l - 7 * m + 114) % 31) + 1;
+        let pascoa = new Date(ano, mesPascoa - 1, diaPascoa);
+        let adicionarDias = (data, dias) => { let d = new Date(data); d.setDate(d.getDate() + dias); return d.toISOString().split('T')[0]; };
+        feriados.push(adicionarDias(pascoa, -47)); feriados.push(adicionarDias(pascoa, -2)); feriados.push(adicionarDias(pascoa, 60));
+        return feriados;
+    }
+
+    function ajustarParaDiaUtil(dataStr) {
+        let segura = tratarDataSegura(dataStr);
+        let data = new Date(segura + 'T12:00:00'); let ano = data.getFullYear(); let feriados = obterFeriadosAno(ano);
+        while (true) {
+            let diaSemana = data.getDay(); let formatada = data.toISOString().split('T')[0];
+            if (diaSemana === 0) { data.setDate(data.getDate() + 1); }
+            else if (diaSemana === 6) { data.setDate(data.getDate() + 2); }
+            else if (feriados.includes(formatada)) { data.setDate(data.getDate() + 1); }
+            else { break; }
+        }
+        return data.toISOString().split('T')[0];
+    }
+
+    function gerarCronogramaAnual(dataInicioStr, intervaloMeses) {
+        if(!dataInicioStr) return [];
+        let cronograma = []; let dataAtual = new Date(tratarDataSegura(dataInicioStr) + 'T12:00:00'); let anoAlvo = dataAtual.getFullYear(); let contador = 1;
+        while (dataAtual.getFullYear() === anoAlvo) {
+            let dataAjustada = ajustarParaDiaUtil(dataAtual.toISOString().split('T')[0]);
+            let dataObjeto = new Date(dataAjustada + 'T12:00:00');
+            if (dataObjeto.getFullYear() !== anoAlvo) break;
+            cronograma.push({ ordem: contador++, data: dataAjustada, diaSemana: dataObjeto.toLocaleDateString('pt-BR', { weekday: 'long' }) });
+            dataAtual.setMonth(dataAtual.getMonth() + parseInt(intervaloMeses));
+        }
+        return cronograma;
+    }
+
+    function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; const id = Date.now(); const nome = input.value.trim(); obras.push({ id, nome, divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; renderizarObras(); }
+    
+    function adicionarSubdivisao(obraId, macro) { 
+        if(window.event) window.event.stopPropagation();
+        if(usuarioAtualPermissoes === "ver") return;
+        const key = btoa(unescape(encodeURIComponent(macro)));
+        const inputSingle = document.getElementById(`input-${obraId}-${key}`); 
+        const txtLote = document.getElementById(`loteObra-${obraId}-${key}`);
+        const obra = obras.find(o => o.id == obraId); 
+        if (!obra) return;
+
+        if(txtLote && txtLote.value.trim()) {
+            let linhas = txtLote.value.split('\n');
+            linhas.forEach(linha => {
+                let nomeItem = linha.trim();
+                if(nomeItem) {
+                    const subId = Date.now() + Math.floor(Math.random() * 1000);
+                    obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 });
+                }
+            });
+            txtLote.value = '';
+        } else if(inputSingle && inputSingle.value.trim()) {
+            const subId = Date.now(); const nomeItem = inputSingle.value.trim(); 
+            obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 }); 
+            inputSingle.value = ''; 
+        }
+        renderizarObras(); 
+    }
+
+    function atualizarPorcentagemSub(obraId, macro, subId, val) { if(usuarioAtualPermissoes === "ver") return; const obra = obras.find(o => o.id == obraId); if (obra) { const sub = obra.divisores[macro].find(s => s.id == subId); if (sub) { sub.porcentagem = parseInt(val); document.getElementById(`lbl-${subId}`).innerText = val + '%'; recarculaValoresObra(obra); } } }
+    function criarClienteManutencao() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('maintClienteNome'); const periodicidade = document.getElementById('maintPeriodicidade').value; const dataInicio = document.getElementById('maintDataInicio').value; if (!input.value.trim() || !dataInicio) return; const id = Date.now(); clientesMaint.push({ id, nome: input.value.trim(), periodicidade, dataInicio, sistemas: {} }); input.value = ''; renderizarMaint(); renderizarAgendaPCM(); }
+    
+    function adicionarSistema(cliId) { 
+        if(window.event) window.event.stopPropagation();
+        if(usuarioAtualPermissoes === "ver") return;
+        const input = document.getElementById(`addSys-${cliId}`); 
+        const sysNome = input.value.trim(); if (!sysNome) return; 
+        const cli = clientesMaint.find(c => c.id == cliId); 
+        if (cli && !cli.sistemas[sysNome]) { cli.sistemas[sysNome] = []; renderizarMaint(); } 
+    }
+    
+    function adicionarEquipamento(cliId, sysNome) { 
+        if(window.event) window.event.stopPropagation();
+        if(usuarioAtualPermissoes === "ver") return;
+        const key = btoa(unescape(encodeURIComponent(sysNome))); 
+        const inputNome = document.getElementById(`eqNome-${cliId}-${key}`); 
+        const inputTag = document.getElementById(`eqTag-${cliId}-${key}`); 
+        const inputTipo = document.getElementById(`eqTipo-${cliId}-${key}`); 
+        const inputAndar = document.getElementById(`eqAndar-${cliId}-${key}`); 
+        const txtLote = document.getElementById(`loteMaint-${cliId}-${key}`);
+        const cli = clientesMaint.find(c => c.id == cliId); 
+        if (!cli || !cli.sistemas[sysNome]) return; 
+
+        const tipoEq = inputTipo ? inputTipo.value : "Preventiva";
+        const andarEq = inputAndar ? inputAndar.value.trim() : "";
+        const dataHoje = new Date().toISOString().split('T')[0];
+
+        if(txtLote && txtLote.value.trim()) {
+            let lines = txtLote.value.split('\n');
+            lines.forEach((linha, idx) => {
+                let nomeEq = linha.trim();
+                if(nomeEq) {
+                    const eqId = Date.now() + Math.floor(Math.random() * 10000);
+                    let tagEq = (inputTag && inputTag.value.trim()) ? `${inputTag.value.trim()}-${idx+1}` : `TAG-${idx+1}`;
+                    cli.sistemas[sysNome].push({ id: eqId, nome: nomeEq, tag: tagEq, status: 'Pendente', tipo: tipoEq, andar: andarEq, data: dataHoje, obs: '' }); 
+                }
+            });
+            txtLote.value = '';
+        } else if(inputNome && inputNome.value.trim()) {
+            const eqId = Date.now(); const nomeEq = inputNome.value.trim(); const tagEq = inputTag.value.trim() || 'S/T';
+            cli.sistemas[sysNome].push({ id: eqId, nome: nomeEq, tag: tagEq, status: 'Pendente', tipo: tipoEq, andar: andarEq, data: dataHoje, obs: '' }); 
+            inputNome.value = ''; if(inputTag) inputTag.value = ''; if(inputAndar) inputAndar.value = '';
+        }
+        renderizarMaint(); 
+    }
+    
+    function alternarStatusEquip(cliId, sysNome, eqId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.status = eq.status === 'Pendente' ? 'Concluído' : 'Pendente'; renderizarMaint(); } } }
+    function atualizarDataEquip(cliId, sysNome, eqId, novaData) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.data = novaData; renderizarMaint(); } } }
+    function atualizarObsEquip(cliId, sysNome, eqId, texto) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.obs = texto; } } }
+    
+    function ArrayAgruparPor(array, chave) { return array.reduce((acc, item) => { const group = item[chave] || "Sem Andar/Local"; if (!acc[group]) acc[group] = []; acc[group].push(item); return acc; }, {}); }
+    function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
+    function calcularTotalObra(o) { let total = 0; divConfig.forEach(d => total += calcularMedia(o.divisores[d.nome]) * d.peso); return Math.round(total); }
+    function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(o.divisores[d.nome]) + '%'; }); const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%'; if(tG) tG.innerText = g + '%'; }
+    function alternarAba(aba, b) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`tab-${aba}`).classList.add('active'); b.classList.add('active'); }
+    function alternarSubAba(subAba, b) { document.querySelectorAll('.sub-tab-content').forEach(c => c.style.display = 'none'); document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`sub-${subAba}`).style.display = 'block'; b.classList.add('active'); }
+    function removerSubdivisao(oId, m, sId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const o = obras.find(ob => ob.id == oId); if (o) { o.divisores[m] = o.divisores[m].filter(s => s.id != sId); renderizarObras(); } }
+    function deletarObra(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover obra?')) { obras = obras.filter(o => o.id != id); renderizarObras(); } }
+    function removerEquip(cId, s, eId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const c = clientesMaint.find(cl => cl.id == cId); if (c && c.sistemas[s]) { c.sistemas[s] = c.sistemas[s].filter(e => e.id != eId); renderizarMaint(); } }
+    function removerSistema(cId, s) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover sistema?')) { const c = clientesMaint.find(cl => cl.id == cId); if (c) { delete c.sistemas[s]; renderizarMaint(); } } }
+    function deletarClienteMaint(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover planta?')) { clientesMaint = clientesMaint.filter(c => c.id != id); renderizarMaint(); renderizarAgendaPCM(); } }
+
+    function renderizarObras() {
+        const lista = document.getElementById('listaObras'); lista.innerHTML = '';
+        if (!obras.length) { lista.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; margin-top:20px;">Nenhuma obra ativa.</p>'; return; }
+        obras.forEach(o => {
+            const glob = calcularTotalObra(o); const div = document.createElement('div'); div.className = 'obra-item'; let htmlM = '';
+            divConfig.forEach(d => {
+                const subs = o.divisores[d.nome] || []; const mKey = btoa(unescape(encodeURIComponent(d.nome))); let htmlS = '';
+                subs.forEach(s => { 
+                    let controleInput = usuarioAtualPermissoes === "ver" ? "" : `<input type="range" min="0" max="100" value="${s.porcentagem}" oninput="atualizarPorcentagemSub(${o.id},'${d.nome}',${s.id},this.value)">`;
+                    let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerSubdivisao(${o.id},'${d.nome}',${s.id})">✕</button>`;
+                    htmlS += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div>• ${s.nome}</div><div class="subdivisao-controles"><span id="lbl-${s.id}" style="font-weight:bold; color:#38bdf8;">${s.porcentagem}%</span>${btnExcluir}</div></div>${controleInput}</div>`; 
+                });
+                
+                let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="input-${o.id}-${mKey}" placeholder="Adicionar item único..."><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')">+ Add</button></div><div class="lote-box"><div class="lote-title">📦 Inserção em Lote (Andares / Escopo)</div><textarea id="loteObra-${o.id}-${mKey}" rows="2" placeholder="Cole andares aqui (um por linha)..."></textarea><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')" style="background:#38bdf8; color:#0f172a; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote Completo</button></div>`;
+                
+                htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(subs)}%</span></div></div><div>${htmlS || '<p style="font-size:12px; color:#64748b;">Nenhum item.</p>'}</div>${formAddHTML}</div>`;
+            });
+            let btnRemoverObra = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" onclick="deletarObra(${o.id})">Remover Obra</button>`;
+            div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo">${o.nome}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}${btnRemoverObra}</div>`;
+            lista.appendChild(div);
+        });
+    }
+
+    function renderizarAgendaPCM() {
+        const tbody = document.getElementById('corpoTabelaAgenda'); tbody.innerHTML = '';
+        if(clientesMaint.length === 0) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">Nenhum contrato ativo.</td></tr>`; return; }
+        clientesMaint.forEach(cli => {
+            let agenda = gerarCronogramaAnual(cli.dataInicio, cli.periodicidade);
+            agenda.forEach(v => {
+                let tr = document.createElement('tr'); let dtFmt = v.data.split('-').reverse().join('/');
+                tr.innerHTML = `<td style="font-weight:bold; color:#f1f5f9;">🏢 ${cli.nome}</td><td>Visita Técnica #${v.ordem}</td><td style="color:#38bdf8; font-weight:600;">${dtFmt}</td><td style="text-transform: capitalize; color:#94a3b8;">${v.diaSemana}</td><td><span class="badge badge-pending">Agendado</span></td>`;
+                tbody.appendChild(tr);
+            });
+        });
+    }
+
+    function atualizarGraficoIndividualCliente(cli) {
+        let totalOk = 0; let totalPendente = 0;
+        if(cli.sistemas) {
+            Object.keys(cli.sistemas).forEach(sys => { cli.sistemas[sys].forEach(eq => { if (eq.status === "Concluído") totalOk++; else totalPendente++; }); });
+        }
+        const canvasId = `chart-cli-${cli.id}`; const canvasEl = document.getElementById(canvasId);
+        if(!canvasEl) return;
+        const ctx = canvasEl.getContext('2d');
+        if (listaGraficosClientes[cli.id]) listaGraficosClientes[cli.id].destroy();
+        listaGraficosClientes[cli.id] = new Chart(ctx, { type: 'bar', data: { labels: ['OK', 'Pendente'], datasets: [{ data: [totalOk, totalPendente], backgroundColor: ['#10b981', '#f59e0b'], borderRadius: 4, barThickness: 30 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8', font: { size: 10 }, stepSize: 1 } }, x: { grid: { display: false }, ticks: { color: '#cbd5e1', font: { size: 10 } } } } } });
+    }
+
+    function renderizarMaint() {
+        const container = document.getElementById('listaClientesManutencao'); container.innerHTML = '';
+        if (!clientesMaint.length) { container.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; padding:20px;">Nenhuma planta ativa.</p>'; return; }
+        
+        clientesMaint.forEach(cli => {
+            const divCli = document.createElement('div'); divCli.className = 'client-card'; let htmlSistemas = '';
+            
+            if(cli.sistemas) {
+                Object.keys(cli.sistemas).forEach(sysNome => {
+                    const sKey = btoa(unescape(encodeURIComponent(sysNome)));
+                    let andaresAgrupados = ArrayAgruparPor(cli.sistemas[sysNome], "andar");
+                    let htmlBlocoAndaresCompleto = '';
+
+                    Object.keys(andaresAgrupados).forEach(nomeAndar => {
+                        let htmlPreventivas = ''; let htmlCorretivas = '';
+                        
+                        andaresAgrupados[nomeAndar].forEach(eq => { 
+                            const bClass = eq.status === 'Concluído' ? 'badge-ok' : 'badge-pending';
+                            let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerEquip(${cli.id},'${sysNome}',${eq.id})">✕</button>`;
+                            let inputDataHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8;">${eq.data.split('-').reverse().join('/')}</span>` : `<input type="date" value="${eq.data}" style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarDataEquip(${cli.id},'${sysNome}',${eq.id},this.value)">`;
+                            let inputObsHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8; font-style:italic;">${eq.obs || 'Sem notas'}</span>` : `<input type="text" value="${eq.obs}" placeholder="Notas..." style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarObsEquip(${cli.id},'${sysNome}',${eq.id},this.value)">`;
+
+                            let htmlEquipRow = `<div class="equip-row" onclick="event.stopPropagation()"><div class="equip-top"><span class="equip-name">ID: ${eq.tag} — ${eq.nome}</span><div style="display:flex; align-items:center; gap:8px;"><span class="badge ${bClass}" onclick="alternarStatusEquip(${cli.id},'${sysNome}',${eq.id})">${eq.status}</span>${btnExcluir}</div></div><div class="equip-inputs-grid"><div>${inputDataHTML}</div><div>${inputObsHTML}</div></div></div>`; 
+                            if(eq.tipo === "Corretiva") htmlCorretivas += htmlEquipRow; else htmlPreventivas += htmlEquipRow;
+                        });
+
+                        htmlBlocoAndaresCompleto += `
+                            <div class="andar-container" onclick="event.stopPropagation()">
+                                <div class="andar-header-title">📍 Localização: ${nomeAndar}</div>
+                                <div class="maint-section-title preventiva">🟢 Preventivas</div>
+                                <div>${htmlPreventivas || '<p style="font-size:11px; color:#64748b; padding-left:5px;">Nenhum ativo.</p>'}</div>
+                                <div class="maint-section-title corretiva">🔴 Corretivas</div>
+                                <div>${htmlCorretivas || '<p style="font-size:11px; color:#64748b; padding-left:5px;">Nenhuma quebra.</p>'}</div>
+                            </div>`;
+                    });
+
+                    let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="flex-direction:column; background:#0f172a; padding:8px; border-radius:6px; margin-top:10px;"><div style="display:flex; gap:4px; width:100%; margin-bottom: 5px;"><input type="text" id="eqAndar-${cli.id}-${sKey}" placeholder="Andar/Local (Ex: 4º Andar — Opcional)" style="font-size:12px; padding:6px;"><select id="eqTipo-${cli.id}-${sKey}" style="font-size:12px; padding:6px; width:120px;"><option value="Preventiva">Preventiva</option><option value="Corretiva">Corretiva</option></select></div><div style="display:flex; gap:4px; width:100%;"><input type="text" id="eqTag-${cli.id}-${sKey}" placeholder="Tag/Base (Ex: FAN-01)" style="font-size:12px; padding:6px;"><input type="text" id="eqNome-${cli.id}-${sKey}" placeholder="Equipamento Único" style="font-size:12px; padding:6px;"></div><button onclick="adicionarEquipamento(${cli.id},'${sysNome}')" style="font-size:12px; padding:5px; width:100%; background:#334155; margin-top:5px;">+ Alocar Ativo Único</button></div><div class="lote-box" style="margin-top:8px;"><div class="lote-title">📦 Inserção em Lote para este Andar/Sistema</div><textarea id="loteMaint-${cli.id}-${sKey}" rows="2" placeholder="Cole os nomes dos equipamentos aqui (um por linha)..."></textarea><button onclick="adicionarEquipamento(${cli.id},'${sysNome}')" style="background:#2563eb; color:#fff; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote no Andar Configurado</button></div>`;
+
+                    let btnRemoverSistema = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" style="font-size:11px;" onclick="removerSistema(${cli.id},'${sysNome}')">Remover</button>`;
+
+                    htmlSistemas += `
+                        <div class="sys-box" onclick="event.stopPropagation()">
+                            <div class="sys-header">
+                                <span>❄️ Sistema: ${sysNome}</span>
+                                ${btnRemoverSistema}
+                            </div>
+                            ${htmlBlocoAndaresCompleto}
+                            ${formAddHTML}
+                        </div>`;
+                });
+            }
+
+            let formAddSistemaHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="margin-top:0; margin-bottom:15px;" onclick="event.stopPropagation()"><input type="text" id="addSys-${cli.id}" placeholder="Nome do sistema"><button onclick="adicionarSistema(${cli.id})">+ Alocar Sistema</button></div>`;
+            let btnRemoverPlanta = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" style="margin-top:15px; width:100%;" onclick="deletarClienteMaint(${cli.id})">Remover Planta</button>`;
+
+            divCli.innerHTML = `<div class="client-header" onclick="document.getElementById('cliCorpo-${cli.id}').classList.toggle('active')"><div class="client-title">🏢 Planta: ${cli.nome}</div></div><div class="client-body" id="cliCorpo-${cli.id}">${formAddSistemaHTML}${htmlSistemas}<div class="client-chart-container"><canvas id="chart-cli-${cli.id}"></canvas></div>${btnRemoverPlanta}</div>`; 
+            container.appendChild(divCli);
+            atualizarGraficoIndividualCliente(cli);
+        });
+    }
+
+    function exportarBancoParaExcel() {
+        const wb = XLSX.utils.book_new();
+        const rowsMacro = [["ID_Obra", "Nome_Obra", "Peso_Cabeamento", "Peso_Conectorizacao", "Peso_Comissionamento", "Peso_Logica_DDC", "Peso_Supervisorio", "Peso_Documentacao", "Progresso_Global"]];
+        obras.forEach(o => { rowsMacro.push([o.id, o.nome, 0.18, 0.18, 0.18, 0.18, 0.18, 0.10, `${calcularTotalObra(o)}%`]); });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rowsMacro), "BD_Obras_Macro");
+        
+        const rowsSubs = [["ID_Sub", "ID_Obra", "Macro_Pertencente", "Nome_Sub_Item", "Porcentagem"]];
+        obras.forEach(o => { divConfig.forEach(d => { (o.divisores[d.nome] || []).forEach(s => { rowsSubs.push([s.id, o.id, d.nome, s.nome, `${s.porcentagem}%`]); }); }); });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rowsSubs), "BD_Obras_Subdivisoes");
+        
+        const rowsPlantas = [["ID_Planta", "Nome_Cliente_Site", "Periodicidade_Meses", "Data_Inicio_Contrato"]];
+        clientesMaint.forEach(c => { rowsPlantas.push([c.id, c.nome, c.periodicidade, c.dataInicio]); });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rowsPlantas), "BD_Manutencao_Plantas");
+        
+        XLSX.writeFile(wb, `Backup_PCM_Engenharia_Predial_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+</script>
+</body>
+</html>
