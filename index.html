@@ -196,12 +196,12 @@
 </div>
 
 <script>
-    // URL OFICIAL DA SUA IMPLANTAÇÃO APPS SCRIPT ATRIBUÍDA DIRETAMENTE
     const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbxlO2Z07DpLK75ouzwqZINXktm3fyFcumshjcuPRFK03MbRr0lZECSJm3O0R9MXCwsiAQ/exec";
 
     let obras = [];
     let clientesMaint = [];
     let listaGraficosClientes = {};
+    let isSincronizando = false; // Flag protetora para evitar conflitos de requisições simultâneas
 
     const divConfig = [
         { nome: 'Cabeamento', peso: 0.18 }, { nome: 'Conectorização', peso: 0.18 },
@@ -246,7 +246,10 @@
         if(cacheClientes) clientesMaint = JSON.parse(cacheClientes);
     }
 
+    // SALVAMENTO MANUAL COM ALERTAS (AÇÃO DO BOTÃO)
     async function salvarEAtualizarPelaPlanilha() {
+        if (isSincronizando) return;
+        isSincronizando = true;
         const banner = document.getElementById("loadingBanner");
         if(banner) { 
             banner.style.display = "block"; 
@@ -268,19 +271,57 @@
 
             if(banner) banner.innerText = "🔄 Puxando base de dados consolidada...";
             await new Promise(resolve => setTimeout(resolve, 1000));
-            await carregarDadosDaNuvem();
+            await carregarDadosDaNuvemBase(false);
             alert("✅ Modificações gravadas e lidas da nuvem com sucesso!");
         } catch (erro) {
             console.error(erro);
             alert("⚠️ Dados salvos localmente, mas houve falha na resposta do Google Drive.");
         } finally {
             if(banner) banner.style.display = "none";
+            isSincronizando = false;
         }
     }
 
-    async function carregarDadosDaNuvem() {
+    // SALVAMENTO AUTOMÁTICO SILENCIOSO (SEM POP-UPS DE ALERTA)
+    async function salvarEAtualizarPelaPlanilhaSilencioso() {
+        if (isSincronizando) return;
+        isSincronizando = true;
         const banner = document.getElementById("loadingBanner");
-        if(banner) { banner.style.display = "block"; banner.innerText = "🛰️ Lendo histórico de dados salvos na nuvem..."; }
+        if(banner) { 
+            banner.style.display = "block"; 
+            banner.innerText = "🛰️ Sincronização automática: Enviando dados para o Sheets..."; 
+        }
+        try {
+            salvarBackupLocal();
+            let payload = {
+                obras: obras.map(o => ({ id: o.id, nome: o.nome, dados_divisores: JSON.stringify(o.divisores) })),
+                clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) }))
+            };
+
+            await fetch(URL_GOOGLE_API, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await carregarDadosDaNuvemBase(true);
+        } catch (erro) {
+            console.error("Falha na sincronização automatizada de fundo:", erro);
+        } finally {
+            if(banner) banner.style.display = "none";
+            isSincronizando = false;
+        }
+    }
+
+    // LEITURA CENTRAL CONSOLIDADA
+    async function carregarDadosDaNuvemBase(isSilencioso) {
+        const banner = document.getElementById("loadingBanner");
+        if(banner && !isSilencioso) { 
+            banner.style.display = "block"; 
+            banner.innerText = "🛰️ Lendo histórico de dados salvos na nuvem..."; 
+        }
         try {
             let resposta = await fetch(URL_GOOGLE_API);
             let json = await resposta.json();
@@ -303,12 +344,23 @@
             }
             salvarBackupLocal();
         } catch (erro) {
-            console.error("Falha de rede ao ler do Drive. Carregando dados do navegador...", erro);
-            carregarBackupLocal();
+            console.error("Falha ao ler do Drive:", erro);
+            if(!isSilencioso) carregarBackupLocal();
         } finally {
             renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
-            if(banner) banner.style.display = "none";
+            if(banner && !isSilencioso) banner.style.display = "none";
         }
+    }
+
+    async function carregarDadosDaNuvem() {
+        await carregarDadosDaNuvemBase(false);
+    }
+
+    // RECURSO SOLICITADO: CRIAÇÃO DO CRONÔMETRO AUTOMÁTICO DE SEGUNDO PLANO (30 SEGUNDOS)
+    function inicializarSincronizacaoAutomatica() {
+        setInterval(async () => {
+            await salvarEAtualizarPelaPlanilhaSilencioso();
+        }, 30000); // Executa pontualmente a cada 30000 milissegundos
     }
 
     function importarBancoDeExcel(inputElement) {
@@ -414,7 +466,7 @@
         if(txtLote && txtLote.value.trim()) {
             let linhas = txtLote.value.split('\n');
             linhas.forEach(linha => {
-                let nomeItem = línea = linha.trim();
+                let nomeItem = linha.trim();
                 if(nomeItem) {
                     const subId = Date.now() + Math.floor(Math.random() * 1000);
                     obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 });
@@ -621,6 +673,7 @@
     window.onload = function() { 
         carregarBackupLocal(); 
         carregarDadosDaNuvem(); 
+        inicializarSincronizacaoAutomatica(); // Ativa o motor de 30 segundos perfeitamente em background
     };
 </script>
 </body>
