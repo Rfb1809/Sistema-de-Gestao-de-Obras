@@ -196,6 +196,7 @@
 </div>
 
 <script>
+    // URL OFICIAL DA SUA IMPLANTAÇÃO APPS SCRIPT ATRIBUÍDA DIRETAMENTE
     const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbxlO2Z07DpLK75ouzwqZINXktm3fyFcumshjcuPRFK03MbRr0lZECSJm3O0R9MXCwsiAQ/exec";
 
     let obras = [];
@@ -233,7 +234,6 @@
         return hojeStr;
     }
 
-    // ================= MEMÓRIA LOCAL DE BACKUP =================
     function salvarBackupLocal() {
         localStorage.setItem("cache_obras", JSON.stringify(obras));
         localStorage.setItem("cache_clientes", JSON.stringify(clientesMaint));
@@ -246,7 +246,6 @@
         if(cacheClientes) clientesMaint = JSON.parse(cacheClientes);
     }
 
-    // ================= GRAVAÇÃO E LEITURA UNIFICADA =================
     async function salvarEAtualizarPelaPlanilha() {
         const banner = document.getElementById("loadingBanner");
         if(banner) { 
@@ -254,9 +253,7 @@
             banner.innerText = "💾 Gravando alterações com segurança no Google Sheets..."; 
         }
         try {
-            // Salva no cache interno do navegador antes para blindar contra quedas de sinal
             salvarBackupLocal();
-
             let payload = {
                 obras: obras.map(o => ({ id: o.id, nome: o.nome, dados_divisores: JSON.stringify(o.divisores) })),
                 clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) }))
@@ -271,11 +268,8 @@
 
             if(banner) banner.innerText = "🔄 Puxando base de dados consolidada...";
             await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Relê os dados para confirmar a sincronia
             await carregarDadosDaNuvem();
             alert("✅ Modificações gravadas e lidas da nuvem com sucesso!");
-
         } catch (erro) {
             console.error(erro);
             alert("⚠️ Dados salvos localmente, mas houve falha na resposta do Google Drive.");
@@ -291,7 +285,6 @@
             let resposta = await fetch(URL_GOOGLE_API);
             let json = await resposta.json();
             
-            // CRÍTICO: Só substitui a tela se a planilha realmente trouxer objetos populados
             if (json.obras && json.obras.length > 0) {
                 obras = json.obras.map(o => ({
                     id: o.id,
@@ -308,10 +301,7 @@
                     sistemas: c.dados_sistemas ? JSON.parse(c.dados_sistemas) : {}
                 }));
             }
-
-            // Atualiza o backup interno com as novidades da nuvem
             salvarBackupLocal();
-
         } catch (erro) {
             console.error("Falha de rede ao ler do Drive. Carregando dados do navegador...", erro);
             carregarBackupLocal();
@@ -376,7 +366,6 @@
         inputElement.value = '';
     }
 
-    // ================= REGRA PCM CALENDÁRIO DIAS ÚTEIS =================
     function obterFeriadosAno(ano) {
         let feriados = [`${ano}-01-01`, `${ano}-04-21`, `${ano}-05-01`, `${ano}-09-07`, `${ano}-10-12`, `${ano}-11-02`, `${ano}-11-15`, `${ano}-11-20`, `${ano}-12-25`];
         let a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mesPascoa = Math.floor((h + l - 7 * m + 114) / 31), diaPascoa = ((h + l - 7 * m + 114) % 31) + 1;
@@ -412,21 +401,20 @@
         return cronograma;
     }
 
-    // ================= OPERAÇÕES CORE DA INTERFACE =================
     function criarObra() { const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; const id = Date.now(); const nome = input.value.trim(); obras.push({ id, nome, divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; renderizarObras(); }
     
     function adicionarSubdivisao(obraId, macro) { 
+        if(window.event) window.event.stopPropagation();
         const key = btoa(unescape(encodeURIComponent(macro)));
         const inputSingle = document.getElementById(`input-${obraId}-${key}`); 
         const txtLote = document.getElementById(`loteObra-${obraId}-${key}`);
         const obra = obras.find(o => o.id == obraId); 
         if (!obra) return;
-        if(window.event) window.event.stopPropagation();
 
         if(txtLote && txtLote.value.trim()) {
             let linhas = txtLote.value.split('\n');
             linhas.forEach(linha => {
-                let nomeItem = linha.trim();
+                let nomeItem = línea = linha.trim();
                 if(nomeItem) {
                     const subId = Date.now() + Math.floor(Math.random() * 1000);
                     obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 });
@@ -630,10 +618,9 @@
         XLSX.writeFile(wb, `Backup_PCM_Engenharia_Predial_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
 
-    // Inicialização segura: Primeiro lê a memória local, depois busca e mescla com os dados do Drive
     window.onload = function() { 
-        carregarBackupLocal(); // Carrega imediatamente o último estado conhecido
-        carregarDadosDaNuvem(); // Sincroniza e atualiza o histórico em background
+        carregarBackupLocal(); 
+        carregarDadosDaNuvem(); 
     };
 </script>
 </body>
