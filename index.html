@@ -310,7 +310,6 @@
         }
     }
 
-    // REGRA SOLICITADA: Primeiro lê o banco da nuvem, mostra na tela, e depois liga o relógio de salvamento
     async function inicializarApp() {
         localStorage.removeItem("cache_obras");
         localStorage.removeItem("cache_clientes");
@@ -428,7 +427,10 @@
             console.error("Falha ao ler do Drive:", erro);
             if(!isSilencioso) carregarBackupLocal();
         } finally {
-            renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
+            // CORREÇÃO CRÍTICA: Força a atualização visual completa da interface assim que a nuvem responde
+            renderizarObras(); 
+            renderizarMaint(); 
+            renderizarAgendaPCM();
             if(banner && !isSilencioso) banner.style.display = "none";
         }
     }
@@ -531,6 +533,75 @@
         return cronograma;
     }
 
+    function renderizarAgendaPCM() {
+        const corpo = document.getElementById("corpoTabelaAgenda");
+        if(!corpo) return;
+        corpo.innerHTML = "";
+        if(!clientesMaint.length) {
+            corpo.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">Nenhum contrato ativo para gerar agenda.</td></tr>`;
+            return;
+        }
+        clientesMaint.forEach(cli => {
+            let cronograma = gerarCronogramaAnual(cli.dataInicio, cli.periodicidade);
+            cronograma.forEach(v => {
+                let tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td style="font-weight:bold; color:#f8fafc;">🏢 ${cli.nome}</td>
+                    <td>Visita Técnica Nº ${v.ordem}</td>
+                    <td style="color:#38bdf8; font-weight:600;">📅 ${v.data.split("-").reverse().join("/")}</td>
+                    <td style="text-transform: capitalize; color:#cbd5e1;">${v.diaSemana}</td>
+                    <td><span class="badge badge-pending">Agendado</span></td>
+                `;
+                corpo.appendChild(tr);
+            });
+        });
+    }
+
+    function atualizarGraficoIndividualCliente(cli) {
+        setTimeout(() => {
+            const ctx = document.getElementById(`chart-cli-${cli.id}`);
+            if (!ctx) return;
+
+            let concluidos = 0;
+            let pendentes = 0;
+
+            if (cli.sistemas) {
+                Object.keys(cli.sistemas).forEach(sys => {
+                    cli.sistemas[sys].forEach(eq => {
+                        if (eq.status === "Concluído") concluidos++;
+                        else pendentes++;
+                    });
+                });
+            }
+
+            if (listaGraficosClientes[cli.id]) {
+                listaGraficosClientes[cli.id].destroy();
+            }
+
+            listaGraficosClientes[cli.id] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Concluídos', 'Pendentes'],
+                    datasets: [{
+                        label: 'Status de Ativos',
+                        data: [concluidos, pendentes],
+                        backgroundColor: ['#15803d', '#b45309'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        x: { ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }, 100);
+    }
+
     function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; const id = Date.now(); const nome = input.value.trim(); obras.push({ id, nome, divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; renderizarObras(); }
     
     function adicionarSubdivisao(obraId, macro) { 
@@ -545,7 +616,7 @@
         if(txtLote && txtLote.value.trim()) {
             let linhas = txtLote.value.split('\n');
             linhas.forEach(linha => {
-                let nomeItem = linha.trim();
+                let nomeItem = inline = linha.trim();
                 if(nomeItem) {
                     const subId = Date.now() + Math.floor(Math.random() * 1000);
                     obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 });
