@@ -14,6 +14,7 @@
         header h1 { font-size: 26px; margin-bottom: 5px; }
         header p { font-size: 14px; color: #94a3b8; margin-bottom: 15px; }
         
+        /* TELA DE LOGIN ESCURA */
         #tela-login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 99999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
         .login-box { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; width: 100%; max-width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .login-box h2 { text-align: center; color: #38bdf8; margin-bottom: 20px; font-size: 22px; }
@@ -233,15 +234,12 @@
 </div>
 
 <script>
-    // LINK OFICIAL ATUALIZADO DO SEU APPS SCRIPT
     const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbyVHghNpHLhQIv7CTTG-MrZcSxMKxHxHFonBvbXr_S11mPvT9G8rNN0N5guAea-1O8imw/exec";
     let obras = [];
     let clientesMaint = [];
     let listaGraficosClientes = {};
     let isSincronizando = false;
     let usuarioAtualPermissoes = "ver"; 
-    
-    // VARIÁVEL DE GATILHO SOLICITADA: Só salva se houver alteração real feita pelo usuário
     let houveAlteracao = false; 
 
     const divConfig = [
@@ -313,18 +311,14 @@
         }
     }
 
-    // REGRA DE ORDEM SOLICITADA: Primeiro lê o banco completo da nuvem, mostra tudo e DEPOIS inicia a escuta de salvamentos
     async function inicializarApp() {
         localStorage.removeItem("cache_obras");
         localStorage.removeItem("cache_clientes");
         obras = [];
         clientesMaint = [];
-        houveAlteracao = false; // Reseta o rastreador de modificações
+        houveAlteracao = false;
         
-        // 1. Vai buscar a verdade gravada nas abas do Drive primeiro
         await carregarDadosDaNuvem(); 
-        
-        // 2. Com a tela carregada, inicia o relógio automático de salvamentos cíclicos (caso mude algo)
         inicializarSincronizacaoAutomatica();
     }
 
@@ -367,15 +361,13 @@
 
     async function transmitirDadosParaNuvem(isSilencioso) {
         if (isSincronizando || usuarioAtualPermissoes === "ver") return;
-        
-        // REGRA SOLICITADA: Se o loop automático rodar mas não houver nenhuma alteração, cancela para não corromper os dados
         if (isSilencioso && !houveAlteracao) return; 
         
         isSincronizando = true;
         const banner = document.getElementById("loadingBanner");
         if(banner) { 
             banner.style.display = "block"; 
-            banner.innerText = isSilencioso ? "🛰️ Sincronização automática de alterações em andamento..." : "💾 Gravando alterações com segurança no Google Sheets..."; 
+            banner.innerText = isSilencioso ? "🛰️ Sincronização automática em background..." : "💾 Gravando alterações com segurança no Google Sheets..."; 
         }
         try {
             salvarBackupLocal();
@@ -393,12 +385,10 @@
                 body: formData.toString()
             });
 
-            houveAlteracao = false; // Reseta a flag após gravar com sucesso na nuvem
+            houveAlteracao = false;
             await new Promise(resolve => setTimeout(resolve, 500));
-            if(!isSilencioso) {
-                await carregarDadosDaNuvemBase(false);
-                alert("✅ Modificações gravadas e sincronizadas com sucesso!");
-            }
+            await carregarDadosDaNuvemBase(isSilencioso);
+            if(!isSilencioso) alert("✅ Modificações gravadas e sincronizadas com sucesso!");
         } catch (erro) {
             console.error(erro);
             if(!isSilencioso) alert("⚠️ Dados salvos localmente, mas houve falha na resposta do Google Drive.");
@@ -411,7 +401,7 @@
     async function salvarEAtualizarPelaPlanilha() { houveAlteracao = true; await transmitirDadosParaNuvem(false); }
     async function salvarEAtualizarPelaPlanilhaSilencioso() { await transmitirDadosParaNuvem(true); }
 
-    // BLINDAGEM HISTÓRICA DO CARREGAMENTO (JSONP CROSS-ORIGIN BYPASS)
+    // LEITURA MULTIPLATAFORMA ATUALIZADA VIA FETCH + CORS NATIVO SUCESSO
     async function carregarDadosDaNuvemBase(isSilencioso) {
         const banner = document.getElementById("loadingBanner");
         if(banner && !isSilencioso) { 
@@ -419,8 +409,13 @@
             banner.innerText = "🛰️ Conectando e decodificando banco do Sheets..."; 
         }
 
-        // Criamos uma função de resposta global que o navegador aceita de forma transparente sem CORS
-        window.processarLeituraJSONP = function(json) {
+        try {
+            let resposta = await fetch(URL_GOOGLE_API + "?acao=lerDados", {
+                method: "GET",
+                mode: "cors"
+            });
+            let json = await resposta.json();
+
             if (json.obras) {
                 obras = json.obras.map(o => ({
                     id: o.id, nome: o.nome,
@@ -434,26 +429,21 @@
                     sistemas: c.dados_sistemas ? JSON.parse(c.dados_sistemas) : {}
                 }));
             }
+
             salvarBackupLocal();
             renderizarObras(); 
             renderizarMaint(); 
             renderizarAgendaPCM();
-            
-            const tagVelha = document.getElementById("jsonp-read-script");
-            if (tagVelha) tagVelha.remove();
-            if(banner && !isSilencioso) banner.style.display = "none";
-        };
 
-        const script = document.createElement("script");
-        script.id = "jsonp-read-script";
-        script.src = URL_GOOGLE_API + "?callback=processarLeituraJSONP&temp=" + Date.now();
-        script.onerror = function() {
-            console.error("Erro na injeção do Script de Leitura.");
+        } catch (erro) {
+            console.error("Erro ao ler dados da nuvem, carregando backup local:", erro);
             carregarBackupLocal();
-            renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
-            if(banner) banner.style.display = "none";
-        };
-        document.body.appendChild(script);
+            renderizarObras(); 
+            renderizarMaint(); 
+            renderizarAgendaPCM();
+        } finally {
+            if(banner && !isSilencioso) banner.style.display = "none";
+        }
     }
 
     async function carregarDadosDaNuvem() { await carregarDadosDaNuvemBase(false); }
@@ -685,7 +675,7 @@
         if(txtLote && txtLote.value.trim()) {
             let lines = txtLote.value.split('\n');
             lines.forEach((linha, idx) => {
-                let nomeEq = inline = linha.trim();
+                let nomeEq = linha.trim();
                 if(nomeEq) {
                     const eqId = Date.now() + Math.floor(Math.random() * 10000);
                     let tagEq = (inputTag && inputTag.value.trim()) ? `${inputTag.value.trim()}-${idx+1}` : `TAG-${idx+1}`;
@@ -800,23 +790,6 @@
             container.appendChild(divCli);
             atualizarGraficoIndividualCliente(cli);
         });
-    }
-
-    function exportarBancoParaExcel() {
-        const wb = XLSX.utils.book_new();
-        const rowsMacro = [["ID_Obra", "Nome_Obra", "Peso_Cabeamento", "Peso_Conectorizacao", "Peso_Comissionamento", "Peso_Logica_DDC", "Peso_Supervisorio", "Peso_Documentacao", "Progresso_Global"]];
-        obras.forEach(o => { rowsMacro.push([o.id, o.nome, 0.18, 0.18, 0.18, 0.18, 0.18, 0.10, `${calcularTotalObra(o)}%`]); });
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rowsMacro), "BD_Obras_Macro");
-        
-        const rowsSubs = [["ID_Sub", "ID_Obra", "Macro_Pertencente", "Nome_Sub_Item", "Porcentagem"]];
-        obras.forEach(o => { divConfig.forEach(d => { (o.divisores[d.nome] || []).forEach(s => { rowsSubs.push([s.id, o.id, d.nome, s.nome, `${s.porcentagem}%`]); }); }); });
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rowsSubs), "BD_Obras_Subdivisoes");
-        
-        const rowsPlantas = [["ID_Planta", "Nome_Cliente_Site", "Periodicidade_Meses", "Data_Inicio_Contrato"]];
-        clientesMaint.forEach(c => { rowsPlantas.push([c.id, c.nome, c.periodicidade, c.dataInicio]); });
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rowsPlantas), "BD_Manutencao_Plantas");
-        
-        XLSX.writeFile(wb, `Backup_PCM_Engenharia_Predial_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
 </script>
 </body>
