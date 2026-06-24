@@ -14,7 +14,6 @@
         header h1 { font-size: 26px; margin-bottom: 5px; }
         header p { font-size: 14px; color: #94a3b8; margin-bottom: 15px; }
         
-        /* TELA DE LOGIN ESCURA */
         #tela-login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 99999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
         .login-box { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; width: 100%; max-width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .login-box h2 { text-align: center; color: #38bdf8; margin-bottom: 20px; font-size: 22px; }
@@ -234,12 +233,16 @@
 </div>
 
 <script>
+    // LINK OFICIAL ATUALIZADO DO SEU APPS SCRIPT
     const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbyVHghNpHLhQIv7CTTG-MrZcSxMKxHxHFonBvbXr_S11mPvT9G8rNN0N5guAea-1O8imw/exec";
     let obras = [];
     let clientesMaint = [];
     let listaGraficosClientes = {};
     let isSincronizando = false;
     let usuarioAtualPermissoes = "ver"; 
+    
+    // VARIÁVEL DE GATILHO SOLICITADA: Só salva se houver alteração real feita pelo usuário
+    let houveAlteracao = false; 
 
     const divConfig = [
         { nome: 'Cabeamento', peso: 0.18 }, { nome: 'Conectorização', peso: 0.18 },
@@ -310,13 +313,18 @@
         }
     }
 
+    // REGRA DE ORDEM SOLICITADA: Primeiro lê o banco completo da nuvem, mostra tudo e DEPOIS inicia a escuta de salvamentos
     async function inicializarApp() {
         localStorage.removeItem("cache_obras");
         localStorage.removeItem("cache_clientes");
         obras = [];
         clientesMaint = [];
+        houveAlteracao = false; // Reseta o rastreador de modificações
         
+        // 1. Vai buscar a verdade gravada nas abas do Drive primeiro
         await carregarDadosDaNuvem(); 
+        
+        // 2. Com a tela carregada, inicia o relógio automático de salvamentos cíclicos (caso mude algo)
         inicializarSincronizacaoAutomatica();
     }
 
@@ -359,11 +367,15 @@
 
     async function transmitirDadosParaNuvem(isSilencioso) {
         if (isSincronizando || usuarioAtualPermissoes === "ver") return;
+        
+        // REGRA SOLICITADA: Se o loop automático rodar mas não houver nenhuma alteração, cancela para não corromper os dados
+        if (isSilencioso && !houveAlteracao) return; 
+        
         isSincronizando = true;
         const banner = document.getElementById("loadingBanner");
         if(banner) { 
             banner.style.display = "block"; 
-            banner.innerText = isSilencioso ? "🛰️ Sincronização automática em background..." : "💾 Gravando alterações com segurança no Google Sheets..."; 
+            banner.innerText = isSilencioso ? "🛰️ Sincronização automática de alterações em andamento..." : "💾 Gravando alterações com segurança no Google Sheets..."; 
         }
         try {
             salvarBackupLocal();
@@ -381,9 +393,12 @@
                 body: formData.toString()
             });
 
-            await new Promise(resolve => setTimeout(resolve, 800));
-            await carregarDadosDaNuvemBase(isSilencioso);
-            if(!isSilencioso) alert("✅ Modificações gravadas e sincronizadas com sucesso!");
+            houveAlteracao = false; // Reseta a flag após gravar com sucesso na nuvem
+            await new Promise(resolve => setTimeout(resolve, 500));
+            if(!isSilencioso) {
+                await carregarDadosDaNuvemBase(false);
+                alert("✅ Modificações gravadas e sincronizadas com sucesso!");
+            }
         } catch (erro) {
             console.error(erro);
             if(!isSilencioso) alert("⚠️ Dados salvos localmente, mas houve falha na resposta do Google Drive.");
@@ -393,19 +408,19 @@
         }
     }
 
-    async function salvarEAtualizarPelaPlanilha() { await transmitirDadosParaNuvem(false); }
+    async function salvarEAtualizarPelaPlanilha() { houveAlteracao = true; await transmitirDadosParaNuvem(false); }
     async function salvarEAtualizarPelaPlanilhaSilencioso() { await transmitirDadosParaNuvem(true); }
 
-    // BLINDAGEM CORS DEFINITIVA VIA JSONP (SCRIPT TAG INJECTION)
+    // BLINDAGEM HISTÓRICA DO CARREGAMENTO (JSONP CROSS-ORIGIN BYPASS)
     async function carregarDadosDaNuvemBase(isSilencioso) {
         const banner = document.getElementById("loadingBanner");
         if(banner && !isSilencioso) { 
             banner.style.display = "block"; 
-            banner.innerText = "🛰️ Lendo histórico de dados salvos na nuvem..."; 
+            banner.innerText = "🛰️ Conectando e decodificando banco do Sheets..."; 
         }
 
-        // Criamos uma função temporária global que receberá os dados sem bloqueio do navegador
-        window.callbackProcessarDadosNuvem = function(json) {
+        // Criamos uma função de resposta global que o navegador aceita de forma transparente sem CORS
+        window.processarLeituraJSONP = function(json) {
             if (json.obras) {
                 obras = json.obras.map(o => ({
                     id: o.id, nome: o.nome,
@@ -424,26 +439,20 @@
             renderizarMaint(); 
             renderizarAgendaPCM();
             
-            // Remove a tag de script injetada para limpar a memória
-            const scriptInjetado = document.getElementById("jsonp-sync-script");
-            if (scriptInjetado) scriptInjetado.remove();
+            const tagVelha = document.getElementById("jsonp-read-script");
+            if (tagVelha) tagVelha.remove();
             if(banner && !isSilencioso) banner.style.display = "none";
         };
 
-        // Injeta a tag de comunicação direta com o Apps Script
         const script = document.createElement("script");
-        script.id = "jsonp-sync-script";
-        script.src = URL_GOOGLE_API + "?callback=callbackProcessarDadosNuvem&t=" + Date.now();
-        
+        script.id = "jsonp-read-script";
+        script.src = URL_GOOGLE_API + "?callback=processarLeituraJSONP&temp=" + Date.now();
         script.onerror = function() {
-            console.error("Falha ao ler do Drive via JSONP.");
-            if(!isSilencioso) {
-                carregarBackupLocal();
-                renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
-                if(banner) banner.style.display = "none";
-            }
+            console.error("Erro na injeção do Script de Leitura.");
+            carregarBackupLocal();
+            renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
+            if(banner) banner.style.display = "none";
         };
-
         document.body.appendChild(script);
     }
 
@@ -496,6 +505,7 @@
                     }
                 }
                 
+                houveAlteracao = true;
                 salvarBackupLocal();
                 renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
                 alert("📊 Banco de dados carregado com sucesso.");
@@ -597,7 +607,7 @@
                     datasets: [{
                         label: 'Status de Ativos',
                         data: [concluidos, pendentes],
-                        backgroundColor: ['#15803d', '#b45309'],
+                        backgroundColor: ['#10b981', '#f59e0b'],
                         borderWidth: 0
                     }]
                 },
@@ -614,7 +624,7 @@
         }, 100);
     }
 
-    function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; const id = Date.now(); const nome = input.value.trim(); obras.push({ id, nome, divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; renderizarObras(); }
+    function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; const id = Date.now(); const nome = input.value.trim(); obras.push({ id, nome, divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; houveAlteracao = true; renderizarObras(); }
     
     function adicionarSubdivisao(obraId, macro) { 
         if(window.event) window.event.stopPropagation();
@@ -640,11 +650,12 @@
             obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 }); 
             inputSingle.value = ''; 
         }
+        houveAlteracao = true;
         renderizarObras(); 
     }
 
-    function atualizarPorcentagemSub(obraId, macro, subId, val) { if(usuarioAtualPermissoes === "ver") return; const obra = obras.find(o => o.id == obraId); if (obra) { const sub = obra.divisores[macro].find(s => s.id == subId); if (sub) { sub.porcentagem = parseInt(val); document.getElementById(`lbl-${subId}`).innerText = val + '%'; recarculaValoresObra(obra); } } }
-    function criarClienteManutencao() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('maintClienteNome'); const periodicidade = document.getElementById('maintPeriodicidade').value; const dataInicio = document.getElementById('maintDataInicio').value; if (!input.value.trim() || !dataInicio) return; const id = Date.now(); clientesMaint.push({ id, nome: input.value.trim(), periodicidade, dataInicio, sistemas: {} }); input.value = ''; renderizarMaint(); renderizarAgendaPCM(); }
+    function atualizarPorcentagemSub(obraId, macro, subId, val) { if(usuarioAtualPermissoes === "ver") return; const obra = obras.find(o => o.id == obraId); if (obra) { const sub = obra.divisores[macro].find(s => s.id == subId); if (sub) { sub.porcentagem = parseInt(val); document.getElementById(`lbl-${subId}`).innerText = val + '%'; houveAlteracao = true; recarculaValoresObra(obra); } } }
+    function criarClienteManutencao() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('maintClienteNome'); const periodicidade = document.getElementById('maintPeriodicidade').value; const dataInicio = document.getElementById('maintDataInicio').value; if (!input.value.trim() || !dataInicio) return; const id = Date.now(); clientesMaint.push({ id, nome: input.value.trim(), periodicidade, dataInicio, sistemas: {} }); input.value = ''; houveAlteracao = true; renderizarMaint(); renderizarAgendaPCM(); }
     
     function adicionarSistema(cliId) { 
         if(window.event) window.event.stopPropagation();
@@ -652,7 +663,7 @@
         const input = document.getElementById(`addSys-${cliId}`); 
         const sysNome = input.value.trim(); if (!sysNome) return; 
         const cli = clientesMaint.find(c => c.id == cliId); 
-        if (cli && !cli.sistemas[sysNome]) { cli.sistemas[sysNome] = []; renderizarMaint(); } 
+        if (cli && !cli.sistemas[sysNome]) { cli.sistemas[sysNome] = []; houveAlteracao = true; renderizarMaint(); } 
     }
     
     function adicionarEquipamento(cliId, sysNome) { 
@@ -674,7 +685,7 @@
         if(txtLote && txtLote.value.trim()) {
             let lines = txtLote.value.split('\n');
             lines.forEach((linha, idx) => {
-                let nomeEq = linha.trim();
+                let nomeEq = inline = linha.trim();
                 if(nomeEq) {
                     const eqId = Date.now() + Math.floor(Math.random() * 10000);
                     let tagEq = (inputTag && inputTag.value.trim()) ? `${inputTag.value.trim()}-${idx+1}` : `TAG-${idx+1}`;
@@ -687,12 +698,13 @@
             cli.sistemas[sysNome].push({ id: eqId, nome: nomeEq, tag: tagEq, status: 'Pendente', tipo: tipoEq, andar: andarEq, data: dataHoje, obs: '' }); 
             inputNome.value = ''; if(inputTag) inputTag.value = ''; if(inputAndar) inputAndar.value = '';
         }
+        houveAlteracao = true;
         renderizarMaint(); 
     }
     
-    function alternarStatusEquip(cliId, sysNome, eqId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.status = eq.status === 'Pendente' ? 'Concluído' : 'Pendente'; renderizarMaint(); } } }
-    function atualizarDataEquip(cliId, sysNome, eqId, novaData) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.data = novaData; renderizarMaint(); } } }
-    function atualizarObsEquip(cliId, sysNome, eqId, texto) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.obs = texto; } } }
+    function alternarStatusEquip(cliId, sysNome, eqId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.status = eq.status === 'Pendente' ? 'Concluído' : 'Pendente'; houveAlteracao = true; renderizarMaint(); } } }
+    function atualizarDataEquip(cliId, sysNome, eqId, novaData) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.data = novaData; houveAlteracao = true; renderizarMaint(); } } }
+    function atualizarObsEquip(cliId, sysNome, eqId, texto) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.obs = texto; houveAlteracao = true; } } }
     
     function ArrayAgruparPor(array, chave) { return array.reduce((acc, item) => { const group = item[chave] || "Sem Andar/Local"; if (!acc[group]) acc[group] = []; acc[group].push(item); return acc; }, {}); }
     function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
@@ -700,11 +712,11 @@
     function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(o.divisores[d.nome]) + '%'; }); const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%'; if(tG) tG.innerText = g + '%'; }
     function alternarAba(aba, b) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`tab-${aba}`).classList.add('active'); b.classList.add('active'); }
     function alternarSubAba(subAba, b) { document.querySelectorAll('.sub-tab-content').forEach(c => c.style.display = 'none'); document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`sub-${subAba}`).style.display = 'block'; b.classList.add('active'); }
-    function removerSubdivisao(oId, m, sId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const o = obras.find(ob => ob.id == oId); if (o) { o.divisores[m] = o.divisores[m].filter(s => s.id != sId); renderizarObras(); } }
-    function deletarObra(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover obra?')) { obras = obras.filter(o => o.id != id); renderizarObras(); } }
-    function removerEquip(cId, s, eId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const c = clientesMaint.find(cl => cl.id == cId); if (c && c.sistemas[s]) { c.sistemas[s] = c.sistemas[s].filter(e => e.id != eId); renderizarMaint(); } }
-    function removerSistema(cId, s) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover sistema?')) { const c = clientesMaint.find(cl => cl.id == cId); if (c) { delete c.sistemas[s]; renderizarMaint(); } } }
-    function deletarClienteMaint(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover planta?')) { clientesMaint = clientesMaint.filter(c => c.id != id); renderizarMaint(); renderizarAgendaPCM(); } }
+    function removerSubdivisao(oId, m, sId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const o = obras.find(ob => ob.id == oId); if (o) { o.divisores[m] = o.divisores[m].filter(s => s.id != sId); houveAlteracao = true; renderizarObras(); } }
+    function deletarObra(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover obra?')) { obras = obras.filter(o => o.id != id); houveAlteracao = true; renderizarObras(); } }
+    function removerEquip(cId, s, eId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const c = clientesMaint.find(cl => cl.id == cId); if (c && c.sistemas[s]) { c.sistemas[s] = c.sistemas[s].filter(e => e.id != eId); houveAlteracao = true; renderizarMaint(); } }
+    function removerSistema(cId, s) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover sistema?')) { const c = clientesMaint.find(cl => cl.id == cId); if (c) { delete c.sistemas[s]; houveAlteracao = true; renderizarMaint(); } } }
+    function deletarClienteMaint(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover planta?')) { clientesMaint = clientesMaint.filter(c => c.id != id); houveAlteracao = true; renderizarMaint(); renderizarAgendaPCM(); } }
 
     function renderizarObras() {
         const lista = document.getElementById('listaObras'); lista.innerHTML = '';
@@ -719,7 +731,7 @@
                     htmlS += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div>• ${s.nome}</div><div class="subdivisao-controles"><span id="lbl-${s.id}" style="font-weight:bold; color:#38bdf8;">${s.porcentagem}%</span>${btnExcluir}</div></div>${controleInput}</div>`; 
                 });
                 
-                let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="input-${o.id}-${mKey}" placeholder="Adicionar item único..."><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')">+ Add</button></div><div class="lote-box"><div class="lote-title">📦 Inserção em Lote (Andares / Escopo)</div><textarea id="loteObra-${o.id}-${mKey}" rows="2" placeholder="Cole andares aqui (um por linha)..."></textarea><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')" style="background:#38bdf8; color:#0f172a; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote Completo</button></div>`;
+                let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="input-${o.id}-${mKey}" placeholder="Adicionar item..."><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')">+ Add</button></div><div class="lote-box"><div class="lote-title">📦 Inserção em Lote (Andares / Escopo)</div><textarea id="loteObra-${o.id}-${mKey}" rows="2" placeholder="Cole andares aqui (um por linha)..."></textarea><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')" style="background:#38bdf8; color:#0f172a; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote Completo</button></div>`;
                 
                 htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(subs)}%</span></div></div><div>${htmlS || '<p style="font-size:12px; color:#64748b;">Nenhum item.</p>'}</div>${formAddHTML}</div>`;
             });
