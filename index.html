@@ -111,7 +111,6 @@
         .lote-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
         .lote-title { font-size: 11px; font-weight: bold; color: #38bdf8; text-transform: uppercase; }
 
-        /* Classes de Controle de Permissão */
         .admin-only, .operar-only { display: none; }
     </style>
 </head>
@@ -142,7 +141,7 @@
             <button class="btn-export-master" onclick="exportarBancoParaExcel()">💾 Exportar Banco (.XLSX)</button>
             <button class="btn-import-master operar-only" onclick="document.getElementById('inputImportExcel').click()">📂 Importar Planilha Local</button>
             <input type="file" id="inputImportExcel" accept=".xlsx, .xls" style="display: none;" onchange="importarBancoDeExcel(this)">
-            <button class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
+            <button class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e AtuaIizar via Planilha</button>
         </div>
     </header>
 
@@ -248,7 +247,6 @@
         { nome: 'Supervisório', peso: 0.18 }, { nome: 'Documentação', peso: 0.10 }
     ];
 
-    // NOVA FUNÇÃO DE LOGIN VIA NUVEM
     async function checarLogin() {
         const u = document.getElementById("userInput").value.trim();
         const p = document.getElementById("passInput").value.trim();
@@ -256,7 +254,6 @@
 
         if (!u || !p) return alert("Por favor, preencha todos os campos.");
 
-        // 1. Validação estática imediata do Admin Master
         if (u === "admin" && p === "Rafa180993") {
             usuarioAtualPermissoes = "master";
             document.getElementById("tela-login").style.display = "none";
@@ -266,7 +263,6 @@
             return;
         }
 
-        // 2. Validação na nuvem em tempo real (para celulares e outros PCs)
         btn.disabled = true;
         btn.innerText = "Autenticando...";
 
@@ -294,7 +290,6 @@
         }
     }
 
-    // NOVA FUNÇÃO DE CRIAÇÃO ENVIANDO DIRETO PARA O SHEETS
     async function criarNovoUsuario() {
         const u = document.getElementById("newUsername").value.trim();
         const p = document.getElementById("newPassword").value.trim();
@@ -303,12 +298,8 @@
         if(!u || !p) return alert("Preencha usuário e senha!");
 
         try {
-            await fetch(URL_GOOGLE_API, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ acao: "criarUsuario", username: u, password: p, perm: perm })
-            });
+            let stringDados = JSON.stringify({ acao: "criarUsuario", username: u, password: p, perm: perm });
+            await fetch(URL_GOOGLE_API + "?dadosLote=" + encodeURIComponent(stringDados), { method: "GET" });
             
             alert("🎉 Usuário registrado na nuvem! Já pode ser usado em qualquer celular ou PC.");
             document.getElementById("newUsername").value = "";
@@ -366,13 +357,14 @@
         if(cacheClientes) clientesMaint = JSON.parse(cacheClientes);
     }
 
-    async function salvarEAtualizarPelaPlanilha() {
+    // CORREÇÃO DO MOTOR DE ENVIO DE DADOS (BLINDADO CONTRA BLOQUEIO DE CORES)
+    async function transmitirDadosParaNuvem(isSilencioso) {
         if (isSincronizando || usuarioAtualPermissoes === "ver") return;
         isSincronizando = true;
         const banner = document.getElementById("loadingBanner");
         if(banner) { 
             banner.style.display = "block"; 
-            banner.innerText = "💾 Gravando alterações com segurança no Google Sheets..."; 
+            banner.innerText = isSilencioso ? "🛰️ Sincronização automática em background..." : "💾 Gravando alterações com segurança no Google Sheets..."; 
         }
         try {
             salvarBackupLocal();
@@ -381,57 +373,30 @@
                 clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) }))
             };
 
+            // Injeta os dados codificados como parâmetro estável que o Apps Script lê multiplataforma
+            let formData = new URLSearchParams();
+            formData.append("dadosLote", JSON.stringify(payload));
+
             await fetch(URL_GOOGLE_API, {
                 method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: formData.toString()
             });
 
-            if(banner) banner.innerText = "🔄 Puxando base de dados consolidada...";
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            await carregarDadosDaNuvemBase(false);
-            alert("✅ Modificações gravadas e lidas da nuvem com sucesso!");
+            await new Promise(resolve => setTimeout(resolve, 800));
+            await carregarDadosDaNuvemBase(isSilencioso);
+            if(!isSilencioso) alert("✅ Modificações gravadas e sincronizadas com sucesso!");
         } catch (erro) {
             console.error(erro);
-            alert("⚠️ Dados salvos localmente, mas houve falha na resposta do Google Drive.");
+            if(!isSilencioso) alert("⚠️ Dados salvos localmente, mas houve falha na resposta do Google Drive.");
         } finally {
             if(banner) banner.style.display = "none";
             isSincronizando = false;
         }
     }
 
-    async function salvarEAtualizarPelaPlanilhaSilencioso() {
-        if (isSincronizando || usuarioAtualPermissoes === "ver") return;
-        isSincronizando = true;
-        const banner = document.getElementById("loadingBanner");
-        if(banner) { 
-            banner.style.display = "block"; 
-            banner.innerText = "🛰️ Sincronização automática: Enviando dados para o Sheets..."; 
-        }
-        try {
-            salvarBackupLocal();
-            let payload = {
-                obras: obras.map(o => ({ id: o.id, nome: o.nome, dados_divisores: JSON.stringify(o.divisores) })),
-                clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) }))
-            };
-
-            await fetch(URL_GOOGLE_API, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            
-            await new Promise(resolve => setTimeout(resolve, 800));
-            await carregarDadosDaNuvemBase(true);
-        } catch (erro) {
-            console.error("Falha na sincronização automatizada de fundo:", erro);
-        } finally {
-            if(banner) banner.style.display = "none";
-            isSincronizando = false;
-        }
-    }
+    async function salvarEAtualizarPelaPlanilha() { await transmitirDadosParaNuvem(false); }
+    async function salvarEAtualizarPelaPlanilhaSilencioso() { await transmitirDadosParaNuvem(true); }
 
     async function carregarDadosDaNuvemBase(isSilencioso) {
         const banner = document.getElementById("loadingBanner");
@@ -443,18 +408,15 @@
             let resposta = await fetch(URL_GOOGLE_API);
             let json = await resposta.json();
             
-            if (json.obras && json.obras.length > 0) {
+            if (json.obras) {
                 obras = json.obras.map(o => ({
-                    id: o.id,
-                    nome: o.nome,
+                    id: o.id, nome: o.nome,
                     divisores: o.dados_divisores ? JSON.parse(o.dados_divisores) : { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] }
                 }));
             }
-            if (json.clientes && json.clientes.length > 0) {
+            if (json.clientes) {
                 clientesMaint = json.clientes.map(c => ({
-                    id: c.id,
-                    nome: c.nome,
-                    periodicidade: c.periodicidade || "1",
+                    id: c.id, nome: c.nome, periodicidade: c.periodicidade || "1",
                     dataInicio: tratarDataSegura(c.dataInicio),
                     sistemas: c.dados_sistemas ? JSON.parse(c.dados_sistemas) : {}
                 }));
@@ -469,15 +431,11 @@
         }
     }
 
-    async function carregarDadosDaNuvem() {
-        await carregarDadosDaNuvemBase(false);
-    }
+    async function carregarDadosDaNuvem() { await carregarDadosDaNuvemBase(false); }
 
     function inicializarSincronizacaoAutomatica() {
         if (usuarioAtualPermissoes === "ver") return; 
-        setInterval(async () => {
-            await salvarEAtualizarPelaPlanilhaSilencioso();
-        }, 30000);
+        setInterval(async () => { await salvarEAtualizarPelaPlanilhaSilencioso(); }, 30000);
     }
 
     function importarBancoDeExcel(inputElement) {
