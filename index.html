@@ -316,10 +316,7 @@
         obras = [];
         clientesMaint = [];
         
-        // 1. Puxa imediatamente os dados armazenados na planilha e monta a tela
         await carregarDadosDaNuvem(); 
-        
-        // 2. Só depois de carregar ativa a rotina cíclica de gravação automática (a cada 30 segundos)
         inicializarSincronizacaoAutomatica();
     }
 
@@ -399,16 +396,16 @@
     async function salvarEAtualizarPelaPlanilha() { await transmitirDadosParaNuvem(false); }
     async function salvarEAtualizarPelaPlanilhaSilencioso() { await transmitirDadosParaNuvem(true); }
 
+    // BLINDAGEM CORS DEFINITIVA VIA JSONP (SCRIPT TAG INJECTION)
     async function carregarDadosDaNuvemBase(isSilencioso) {
         const banner = document.getElementById("loadingBanner");
         if(banner && !isSilencioso) { 
             banner.style.display = "block"; 
             banner.innerText = "🛰️ Lendo histórico de dados salvos na nuvem..."; 
         }
-        try {
-            let resposta = await fetch(URL_GOOGLE_API);
-            let json = await resposta.json();
-            
+
+        // Criamos uma função temporária global que receberá os dados sem bloqueio do navegador
+        window.callbackProcessarDadosNuvem = function(json) {
             if (json.obras) {
                 obras = json.obras.map(o => ({
                     id: o.id, nome: o.nome,
@@ -423,16 +420,31 @@
                 }));
             }
             salvarBackupLocal();
-        } catch (erro) {
-            console.error("Falha ao ler do Drive:", erro);
-            if(!isSilencioso) carregarBackupLocal();
-        } finally {
-            // CORREÇÃO CRÍTICA: Força a atualização visual completa da interface assim que a nuvem responde
             renderizarObras(); 
             renderizarMaint(); 
             renderizarAgendaPCM();
+            
+            // Remove a tag de script injetada para limpar a memória
+            const scriptInjetado = document.getElementById("jsonp-sync-script");
+            if (scriptInjetado) scriptInjetado.remove();
             if(banner && !isSilencioso) banner.style.display = "none";
-        }
+        };
+
+        // Injeta a tag de comunicação direta com o Apps Script
+        const script = document.createElement("script");
+        script.id = "jsonp-sync-script";
+        script.src = URL_GOOGLE_API + "?callback=callbackProcessarDadosNuvem&t=" + Date.now();
+        
+        script.onerror = function() {
+            console.error("Falha ao ler do Drive via JSONP.");
+            if(!isSilencioso) {
+                carregarBackupLocal();
+                renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
+                if(banner) banner.style.display = "none";
+            }
+        };
+
+        document.body.appendChild(script);
     }
 
     async function carregarDadosDaNuvem() { await carregarDadosDaNuvemBase(false); }
@@ -616,7 +628,7 @@
         if(txtLote && txtLote.value.trim()) {
             let linhas = txtLote.value.split('\n');
             linhas.forEach(linha => {
-                let nomeItem = inline = linha.trim();
+                let nomeItem = linha.trim();
                 if(nomeItem) {
                     const subId = Date.now() + Math.floor(Math.random() * 1000);
                     obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 });
