@@ -141,7 +141,7 @@
             <button class="btn-export-master" onclick="exportarBancoParaExcel()">💾 Exportar Banco (.XLSX)</button>
             <button class="btn-import-master operar-only" onclick="document.getElementById('inputImportExcel').click()">📂 Importar Planilha Local</button>
             <input type="file" id="inputImportExcel" accept=".xlsx, .xls" style="display: none;" onchange="importarBancoDeExcel(this)">
-            <button class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e AtuaIizar via Planilha</button>
+            <button class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
         </div>
     </header>
 
@@ -259,7 +259,7 @@
             document.getElementById("tela-login").style.display = "none";
             document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
             document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
-            inicializarApp();
+            await inicializarApp();
             return;
         }
 
@@ -276,7 +276,7 @@
                 if (resultado.perm.includes("operar")) {
                     document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
                 }
-                inicializarApp();
+                await inicializarApp();
             } else {
                 alert("⚠️ " + resultado.mensagem);
                 btn.disabled = false;
@@ -310,13 +310,17 @@
         }
     }
 
+    // REGRA SOLICITADA: Primeiro lê o banco da nuvem, mostra na tela, e depois liga o relógio de salvamento
     async function inicializarApp() {
         localStorage.removeItem("cache_obras");
         localStorage.removeItem("cache_clientes");
         obras = [];
         clientesMaint = [];
         
+        // 1. Puxa imediatamente os dados armazenados na planilha e monta a tela
         await carregarDadosDaNuvem(); 
+        
+        // 2. Só depois de carregar ativa a rotina cíclica de gravação automática (a cada 30 segundos)
         inicializarSincronizacaoAutomatica();
     }
 
@@ -357,7 +361,6 @@
         if(cacheClientes) clientesMaint = JSON.parse(cacheClientes);
     }
 
-    // CORREÇÃO DO MOTOR DE ENVIO DE DADOS (BLINDADO CONTRA BLOQUEIO DE CORES)
     async function transmitirDadosParaNuvem(isSilencioso) {
         if (isSincronizando || usuarioAtualPermissoes === "ver") return;
         isSincronizando = true;
@@ -373,7 +376,6 @@
                 clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) }))
             };
 
-            // Injeta os dados codificados como parâmetro estável que o Apps Script lê multiplataforma
             let formData = new URLSearchParams();
             formData.append("dadosLote", JSON.stringify(payload));
 
@@ -642,31 +644,6 @@
             div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo">${o.nome}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}${btnRemoverObra}</div>`;
             lista.appendChild(div);
         });
-    }
-
-    function renderizarAgendaPCM() {
-        const tbody = document.getElementById('corpoTabelaAgenda'); tbody.innerHTML = '';
-        if(clientesMaint.length === 0) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">Nenhum contrato ativo.</td></tr>`; return; }
-        clientesMaint.forEach(cli => {
-            let agenda = gerarCronogramaAnual(cli.dataInicio, cli.periodicidade);
-            agenda.forEach(v => {
-                let tr = document.createElement('tr'); let dtFmt = v.data.split('-').reverse().join('/');
-                tr.innerHTML = `<td style="font-weight:bold; color:#f1f5f9;">🏢 ${cli.nome}</td><td>Visita Técnica #${v.ordem}</td><td style="color:#38bdf8; font-weight:600;">${dtFmt}</td><td style="text-transform: capitalize; color:#94a3b8;">${v.diaSemana}</td><td><span class="badge badge-pending">Agendado</span></td>`;
-                tbody.appendChild(tr);
-            });
-        });
-    }
-
-    function atualizarGraficoIndividualCliente(cli) {
-        let totalOk = 0; let totalPendente = 0;
-        if(cli.sistemas) {
-            Object.keys(cli.sistemas).forEach(sys => { cli.sistemas[sys].forEach(eq => { if (eq.status === "Concluído") totalOk++; else totalPendente++; }); });
-        }
-        const canvasId = `chart-cli-${cli.id}`; const canvasEl = document.getElementById(canvasId);
-        if(!canvasEl) return;
-        const ctx = canvasEl.getContext('2d');
-        if (listaGraficosClientes[cli.id]) listaGraficosClientes[cli.id].destroy();
-        listaGraficosClientes[cli.id] = new Chart(ctx, { type: 'bar', data: { labels: ['OK', 'Pendente'], datasets: [{ data: [totalOk, totalPendente], backgroundColor: ['#10b981', '#f59e0b'], borderRadius: 4, barThickness: 30 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8', font: { size: 10 }, stepSize: 1 } }, x: { grid: { display: false }, ticks: { color: '#cbd5e1', font: { size: 10 } } } } } });
     }
 
     function renderizarMaint() {
