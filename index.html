@@ -14,7 +14,6 @@
         header h1 { font-size: 26px; margin-bottom: 5px; }
         header p { font-size: 14px; color: #94a3b8; margin-bottom: 15px; }
         
-        /* TELA DE LOGIN ESCURA */
         #tela-login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 99999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
         .login-box { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; width: 100%; max-width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .login-box h2 { text-align: center; color: #38bdf8; margin-bottom: 20px; font-size: 22px; }
@@ -118,7 +117,6 @@
         .lote-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
         .lote-title { font-size: 11px; font-weight: bold; color: #38bdf8; text-transform: uppercase; }
 
-        /* Estilos adicionais para a nova estrutura de pessoas */
         .people-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-bottom: 15px; padding: 15px; }
         .people-info-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #334155; padding-bottom: 10px; margin-bottom: 12px; }
         .vacation-period-box { background: #111827; padding: 10px; border-radius: 6px; margin-top: 6px; border: 1px solid #1e293b; display: grid; grid-template-columns: 1fr; gap: 10px; align-items: center; font-size: 13px; }
@@ -478,7 +476,6 @@
                 }));
             }
             if (json.colaboradores) {
-                // Se na planilha vier como string pura por algum motivo, trata
                 colaboradores = typeof json.colaboradores === 'string' ? JSON.parse(json.colaboradores) : json.colaboradores;
             }
 
@@ -507,9 +504,6 @@
         setInterval(async () => { await salvarEAtualizarPelaPlanilhaSilencioso(); }, 30000);
     }
 
-    // =========================================================================
-    // MODULO ATUALIZADO: GESTÃO DE PESSOAS COM HISTÓRICO DE FÉRIAS AQUISITIVAS
-    // =========================================================================
     function criarColaborador() {
         if(usuarioAtualPermissoes === "ver") return;
         const nome = document.getElementById('pNome').value.trim();
@@ -518,7 +512,6 @@
         if(!nome || !admissao) return alert("Nome e Data de Entrada/Admissão são obrigatórios!");
 
         const id = gerarUUID();
-        // Inicializa o colaborador apenas com nome, admissao e o mapeamento de historico de ferias vazio
         colaboradores.push({ id, nome, admissao, historicoFerias: {} });
         
         document.getElementById('pNome').value = '';
@@ -538,8 +531,6 @@
             }
             c.historicoFerias[anoPeriodo][campo] = valor;
             houveAlteracao = true;
-            // Sincroniza visualmente as badges sem recarregar a árvore inteira para evitar perder o foco
-            renderizarPessoas();
         }
     }
 
@@ -569,13 +560,10 @@
             const div = document.createElement("div");
             div.className = "people-card";
 
-            // Data de hoje fixa baseada no ano de execução corrente (2026)
             let hoje = new Date();
             let dtAdmissao = new Date(p.admissao + 'T12:00:00');
-            
             let htmlPeriodos = '<h4>📅 Períodos Aquisitivos Conquistados (Até Hoje):</h4>';
             
-            // Loop para calcular os blocos de anos aquisitivos de férias (1 ano para cada ciclo)
             let anoAdmissao = dtAdmissao.getFullYear();
             let cicloAno = anoAdmissao;
             let indexPeriodo = 1;
@@ -586,42 +574,18 @@
                 
                 let fimCiclo = new Date(p.admissao + 'T12:00:00');
                 fimCiclo.setFullYear(cicloAno + 1);
-                fimCiclo.setDate(fimCiclo.getDate() - 1); // Último dia do período aquisitivo
+                fimCiclo.setDate(fimCiclo.getDate() - 1);
 
-                // Se o fim do ciclo passou do dia de hoje, ele ainda não completou esse direito
                 if (fimCiclo > hoje) break;
 
                 let chavePeriodo = `${inicioCiclo.getFullYear()}-${fimCiclo.getFullYear()}`;
                 
-                // Resgata se já existe dados salvos desse período, se não cria padrão
                 if(!p.historicoFerias) p.historicoFerias = {};
                 if(!p.historicoFerias[chavePeriodo]) {
                     p.historicoFerias[chavePeriodo] = { fInicio: '', fFim: '', status: 'Pendente' };
                 }
 
                 let dadosPeriodo = p.historicoFerias[chavePeriodo];
-
-                // Badge de Status Dinâmica / Manual
-                let txtBadge = "Pendente";
-                let cBadge = "badge-danger";
-
-                if (dadosPeriodo.status === "Tirada") {
-                    txtBadge = "Férias Tiradas";
-                    cBadge = "badge-ok";
-                } else if (dadosPeriodo.status === "Agendado") {
-                    txtBadge = "Agendado";
-                    cBadge = "badge-pending";
-                }
-
-                // Se o usuário colocou agendado e a data de hoje bater dentro, força o Gozo Atual
-                if(dadosPeriodo.status === "Agendado" && dadosPeriodo.fInicio && dadosPeriodo.fFim) {
-                    let dI = new Date(dadosPeriodo.fInicio + 'T00:00:00');
-                    let dF = new Date(dadosPeriodo.fFim + 'T23:59:59');
-                    if(hoje >= dI && hoje <= dF) {
-                        txtBadge = "Em Gozo Atual";
-                        cBadge = "badge-vacation";
-                    }
-                }
 
                 let disabledAttr = usuarioAtualPermissoes === "ver" ? "disabled" : "";
 
@@ -634,11 +598,11 @@
                         </div>
                         <div>
                             <label style="font-size:10px; display:block; color:#94a3b8;">Fim do Gozo:</label>
-                            <input type="date" value="${dadosPeriodo.fFim}" ${disabledAttr} onchange="atualizarApallamentoFerias('${p.id}', '${chavePeriodo}', 'fFim', this.value)">
+                            <input type="date" value="${dadosPeriodo.fFim}" ${disabledAttr} onchange="atualizarApontamentoFerias('${p.id}', '${chavePeriodo}', 'fFim', this.value)">
                         </div>
                         <div>
                             <label style="font-size:10px; display:block; color:#94a3b8;">Status / Uso:</label>
-                            <select ${disabledAttr} onchange="atualizarApontamentoFerias('${p.id}', '${chavePeriodo}', 'status', this.value)" style="padding: 4px; font-size:12px;">
+                            <select ${disabledAttr} onchange="atualizarApontamentoFerias('${p.id}', '${chavePeriodo}', 'status', this.value); renderizarPessoas();" style="padding: 4px; font-size:12px;">
                                 <option value="Pendente" ${dadosPeriodo.status === 'Pendente' ? 'selected' : ''}>🔴 Pendente / Vencida</option>
                                 <option value="Agendado" ${dadosPeriodo.status === 'Agendado' ? 'selected' : ''}>🟡 Agendada</option>
                                 <option value="Tirada" ${dadosPeriodo.status === 'Tirada' ? 'selected' : ''}>🟢 Tirada / Concluída</option>
@@ -671,12 +635,6 @@
         });
     }
 
-    // Função interna corrigindo typo de escrita dinâmica nas chamadas de eventos
-    function atualizarApallamentoFerias(id, chave, campo, valor) { atualizarApontamentoFerias(id, chave, campo, valor); }
-
-    // =========================================================================
-    // MANUTENÇÃO E OBRAS (CONSERVAÇÃO DE COMPATIBILIDADE INTEGRAL)
-    // =========================================================================
     function alternarAba(aba, b) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`tab-${aba}`).classList.add('active'); b.classList.add('active'); }
     function alternarSubAba(subAba, b) { document.querySelectorAll('.sub-tab-content').forEach(c => c.style.display = 'none'); document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`sub-${subAba}`).style.display = 'block'; b.classList.add('active'); }
     function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
@@ -836,15 +794,11 @@
         });
     }
 
-    function atualizarGraficoIndividualCliente(cli) {
-        setTimeout(() => {
-            const ctx = document.getElementById(`chart-cli-${cli.id}`); if (!ctx) return;
-            let concluidos = 0; let pendentes = 0;
-            if (cli.sistemas) { Object.keys(cli.sistemas).forEach(sys => { cli.sistemas[sys].forEach(eq => { if (eq.status === "Concluído") concluidos++; else pendentes++; }); }); }
-            if (listaGraficosClientes[cli.id]) { listaGraficosClientes[cli.id].destroy(); }
-            listaGraficosClientes[cli.id] = new Chart(ctx, { type: 'bar', data: { labels: ['Concluídos', 'Pendentes'], datasets: [{ data: [concluidos, pendentes], backgroundColor: ['#10b981', '#f59e0b'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } } });
-        }, 100);
-    }
+    function ArrayAgruparPor(array, chave) { return array.reduce((acc, item) => { const group = item[chave] || "Sem Andar/Local"; if (!acc[group]) acc[group] = []; acc[group].push(item); return acc; }, {}); }
+    function obterFeriadosAno(ano) { let feriados = [`${ano}-01-01`, `${ano}-04-21`, `${ano}-05-01`, `${ano}-09-07`, `${ano}-10-12`, `${ano}-11-02`, `${ano}-11-15`, `${ano}-11-20`, `${ano}-12-25`]; let a = ano % 19, b = Math.floor(ano / 100), c = ano % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451), mesPascoa = Math.floor((h + l - 7 * m + 114) / 31), diaPascoa = ((h + l - 7 * m + 114) % 31) + 1; let pascoa = new Date(ano, mesPascoa - 1, diaPascoa); let adicionarDias = (data, dias) => { let d = new Date(data); d.setDate(d.getDate() + dias); return d.toISOString().split('T')[0]; }; feriados.push(adicionarDias(pascoa, -47)); feriados.push(adicionarDias(pascoa, -2)); feriados.push(adicionarDias(pascoa, 60)); return feriados; }
+    function ajustarParaDiaUtil(dataStr) { let segura = tratarDataSegura(dataStr); let data = new Date(segura + 'T12:00:00'); let ano = data.getFullYear(); let feriados = obterFeriadosAno(ano); while (true) { let diaSemana = data.getDay(); let formatada = data.toISOString().split('T')[0]; if (diaSemana === 0) { data.setDate(data.getDate() + 1); } else if (diaSemana === 6) { data.setDate(data.getDate() + 2); } else if (feriados.includes(formatada)) { data.setDate(data.getDate() + 1); } else { break; } } return data.toISOString().split('T')[0]; }
+    function gerarCronogramaAnual(dataInicioStr, intervaloMeses) { if(!dataInicioStr) return []; let cronograma = []; let dataAtual = new Date(tratarDataSegura(dataInicioStr) + 'T12:00:00'); let anoAlvo = dataAtual.getFullYear(); let contador = 1; while (dataAtual.getFullYear() === anoAlvo) { let dataAjustada = ajustarParaDiaUtil(dataAtual.toISOString().split('T')[0]); let dataObjeto = new Date(dataAjustada + 'T12:00:00'); if (dataObjeto.getFullYear() !== anoAlvo) break; cronograma.push({ ordem: contador++, data: dataAjustada, diaSemana: dataObjeto.toLocaleDateString('pt-BR', { weekday: 'long' }) }); dataAtual.setMonth(dataAtual.getMonth() + parseInt(intervaloMeses)); } return cronograma; }
+    function atualizarGraficoIndividualCliente(cli) { setTimeout(() => { const ctx = document.getElementById(`chart-cli-${cli.id}`); if (!ctx) return; let concluidos = 0; let pendentes = 0; if (cli.sistemas) { Object.keys(cli.sistemas).forEach(sys => { cli.sistemas[sys].forEach(eq => { if (eq.status === "Concluído") concluidos++; else pendentes++; }); }); } if (listaGraficosClientes[cli.id]) { listaGraficosClientes[cli.id].destroy(); } listaGraficosClientes[cli.id] = new Chart(ctx, { type: 'bar', data: { labels: ['Concluídos', 'Pendentes'], datasets: [{ data: [concluidos, pendentes], backgroundColor: ['#10b981', '#f59e0b'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }, x: { ticks: { color: '#94a3b8' } } } } }); }, 100); }
 </script>
 </body>
 </html>
