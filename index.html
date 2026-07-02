@@ -31,6 +31,11 @@
         .btn-import-master:hover { background-color: #1d4ed8; }
         .btn-save-cloud { background-color: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
         .btn-save-cloud:hover { background-color: #0369a1; }
+        .btn-save-cloud:disabled { background-color: #475569; color: #94a3b8; cursor: not-allowed; }
+
+        .search-bar-container { margin-bottom: 15px; }
+        .search-input { width: 100%; padding: 10px 15px; background-color: #1e293b; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
+        .search-input:focus { outline: 1px solid #38bdf8; }
 
         .tab-menu { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 15px; }
         .tab-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
@@ -81,6 +86,7 @@
         .badge-ok { background: #15803d; color: #dcfce7; }
         .badge-pending { background: #b45309; color: #fef9c3; }
         .badge-danger { background: #991b1b; color: #fee2e2; }
+        .badge-vacation { background: #6b21a8; color: #f3e8ff; } /* Cor roxa para gozo atual */
 
         .agenda-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
         .agenda-table th, .agenda-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
@@ -112,7 +118,6 @@
         .lote-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
         .lote-title { font-size: 11px; font-weight: bold; color: #38bdf8; text-transform: uppercase; }
 
-        /* Elementos ocultos por padrão, controlados via JS após o login */
         .admin-only, .operar-only { display: none; }
     </style>
 </head>
@@ -129,7 +134,7 @@
             <label>Senha</label>
             <input type="password" id="passInput" placeholder="Digite sua senha">
         </div>
-        <button onclick="checarLogin()">Entrar no Sistema</button>
+        <button id="btnLoginAction" onclick="checarLogin()">Entrar no Sistema</button>
     </div>
 </div>
 
@@ -143,7 +148,7 @@
             <button class="btn-export-master admin-only" onclick="exportarBancoParaExcel()">💾 Exportar Banco (.XLSX)</button>
             <button class="btn-import-master admin-only" onclick="document.getElementById('inputImportExcel').click()">📂 Importar Planilha Local</button>
             <input type="file" id="inputImportExcel" accept=".xlsx, .xls" style="display: none;" onchange="importarBancoDeExcel(this)">
-            <button class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
+            <button id="btnCloudSync" class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
         </div>
     </header>
 
@@ -167,6 +172,9 @@
     </div>
 
     <div id="tab-obras" class="tab-content active">
+        <div class="search-bar-container">
+            <input type="text" class="search-input" id="searchObras" placeholder="🔍 Buscar por nome da obra..." oninput="renderizarObras()">
+        </div>
         <div class="card operar-only">
             <h3>Adicionar Nova Obra</h3>
             <div class="sub-form">
@@ -184,6 +192,9 @@
         </div>
 
         <div id="sub-inventario" class="sub-tab-content" style="display: block;">
+            <div class="search-bar-container">
+                <input type="text" class="search-input" id="searchMaint" placeholder="🔍 Buscar por planta, sistema ou TAG de ativo..." oninput="renderizarMaint()">
+            </div>
             <div class="maint-layout">
                 <div class="card operar-only">
                     <h3>Cadastrar Planta / Contrato</h3>
@@ -236,6 +247,9 @@
     </div>
 
     <div id="tab-pessoas" class="tab-content">
+        <div class="search-bar-container">
+            <input type="text" class="search-input" id="searchPessoas" placeholder="🔍 Buscar colaborador pelo nome..." oninput="renderizarPessoas()">
+        </div>
         <div class="card operar-only">
             <h3>👥 Cadastrar Novo Colaborador</h3>
             <div class="sub-form">
@@ -285,24 +299,22 @@
         { nome: 'Supervisório', peso: 0.18 }, { nome: 'Documentação', peso: 0.10 }
     ];
 
+    // Gerador de Chave ID Única Criptográfica (UUIDv4)
+    function gerarUUID() {
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        );
+    }
+
     async function checarLogin() {
         const u = document.getElementById("userInput").value.trim();
         const p = document.getElementById("passInput").value.trim();
-        const btn = document.querySelector("#tela-login button");
+        const btn = document.getElementById("btnLoginAction");
 
         if (!u || !p) return alert("Por favor, preencha todos os campos.");
 
-        if (u === "admin" && p === "Rafa180993") {
-            usuarioAtualPermissoes = "master";
-            document.getElementById("tela-login").style.display = "none";
-            document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
-            document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
-            await inicializarApp();
-            return;
-        }
-
         btn.disabled = true;
-        btn.innerText = "Autenticando...";
+        btn.innerText = "Autenticando com segurança...";
 
         try {
             let resposta = await fetch(URL_GOOGLE_API + "?usuario=" + encodeURIComponent(u) + "&senha=" + encodeURIComponent(p));
@@ -327,7 +339,7 @@
             }
         } catch (erro) {
             console.error(erro);
-            alert("❌ Erro de rede ao tentar autenticar. Tente novamente.");
+            alert("❌ Falha de comunicação com a Nuvem. Verifique o Deploy do Apps Script.");
             btn.disabled = false;
             btn.innerText = "Entrar no Sistema";
         }
@@ -344,7 +356,7 @@
             let stringDados = JSON.stringify({ acao: "criarUsuario", username: u, password: p, perm: perm });
             await fetch(URL_GOOGLE_API + "?dadosLote=" + encodeURIComponent(stringDados), { method: "GET" });
             
-            alert("🎉 Usuário registrado na nuvem! Já pode ser usado em qualquer celular ou PC.");
+            alert("🎉 Usuário registrado na nuvem!");
             document.getElementById("newUsername").value = "";
             document.getElementById("newPassword").value = "";
         } catch (erro) {
@@ -411,7 +423,10 @@
         if (isSilencioso && !houveAlteracao) return; 
         
         isSincronizando = true;
+        const btnSync = document.getElementById("btnCloudSync");
         const banner = document.getElementById("loadingBanner");
+        
+        if(btnSync) { btnSync.disabled = true; btnSync.innerText = "🛰️ Sincronizando..."; }
         if(banner) { 
             banner.style.display = "block"; 
             banner.innerText = isSilencioso ? "🛰️ Sincronização automática em background..." : "💾 Gravando alterações com segurança no Google Sheets..."; 
@@ -421,7 +436,7 @@
             let payload = {
                 obras: obras.map(o => ({ id: o.id, nome: o.nome, dados_divisores: JSON.stringify(o.divisores) })),
                 clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) })),
-                colaboradores: colaboradores // Envia a chave de pessoas para a nuvem
+                colaboradores: colaboradores
             };
 
             let formData = new URLSearchParams();
@@ -442,6 +457,7 @@
             if(!isSilencioso) alert("⚠️ Dados salvos localmente, mas houve falha na resposta do Google Drive.");
         } finally {
             if(banner) banner.style.display = "none";
+            if(btnSync) { btnSync.disabled = false; btnSync.innerText = "🔄 Salvar e Atualizar via Planilha"; }
             isSincronizando = false;
         }
     }
@@ -512,7 +528,7 @@
 
         if(!nome || !admissao) return alert("Nome e Data de Entrada são obrigatórios!");
 
-        const id = Date.now();
+        const id = gerarUUID();
         colaboradores.push({ id, nome, admissao, fInicio, fFim });
         
         document.getElementById('pNome').value = '';
@@ -538,16 +554,18 @@
         if(!corpo) return;
         corpo.innerHTML = "";
 
-        if(!colaboradores.length) {
-            corpo.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">Nenhum colaborador registrado.</td></tr>`;
+        const termoBusca = document.getElementById("searchPessoas").value.toLowerCase().trim();
+        const listaFiltrada = colaboradores.filter(p => p.nome.toLowerCase().includes(termoBusca));
+
+        if(!listaFiltrada.length) {
+            corpo.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">Nenhum colaborador corresponde à busca.</td></tr>`;
             return;
         }
 
-        colaboradores.forEach(p => {
+        listaFiltrada.forEach(p => {
             let dtAdmissao = new Date(p.admissao + 'T12:00:00');
-            let hoje = new Date(); // Referência do ano corrente: 2026
+            let hoje = new Date(); // Corrente baseado em 2026
             
-            // Cálculo de Período Aquisitivo (Férias vencidas se tempo de casa > 1 ano)
             let tempoCasaAnos = (hoje - dtAdmissao) / (1000 * 60 * 60 * 24 * 365.25);
             let badgeStatus = `<span class="badge badge-pending">A Vencer</span>`;
             if (tempoCasaAnos >= 1.0) {
@@ -557,10 +575,18 @@
             let textoFerias = "Não agendadas";
             if(p.fInicio && p.fFim) {
                 textoFerias = `${p.fInicio.split('-').reverse().join('/')} até ${p.fFim.split('-').reverse().join('/')}`;
-                badgeStatus = `<span class="badge badge-ok">Gozo Agendado</span>`;
+                
+                // Validação inteligente se está em gozo HOJE
+                let dInicio = new Date(p.fInicio + 'T00:00:00');
+                let dFim = new Date(p.fFim + 'T23:59:59');
+                if(hoje >= dInicio && hoje <= dFim) {
+                    badgeStatus = `<span class="badge badge-vacation">Em Gozo (Atualmente)</span>`;
+                } else {
+                    badgeStatus = `<span class="badge badge-ok">Gozo Agendado</span>`;
+                }
             }
 
-            let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" style="font-size:14px;" onclick="deletarColaborador(${p.id})">✕</button>`;
+            let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" style="font-size:14px;" onclick="deletarColaborador('${p.id}')">✕</button>`;
 
             let tr = document.createElement("tr");
             tr.innerHTML = `
@@ -574,48 +600,50 @@
         });
     }
 
-    // MANUTENÇÃO E OBRAS - COMPATIBILIDADE E RECONSTRUÇÃO
     function alternarAba(aba, b) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`tab-${aba}`).classList.add('active'); b.classList.add('active'); }
     function alternarSubAba(subAba, b) { document.querySelectorAll('.sub-tab-content').forEach(c => c.style.display = 'none'); document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`sub-${subAba}`).style.display = 'block'; b.classList.add('active'); }
     function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
     function calcularTotalObra(o) { let total = 0; divConfig.forEach(d => total += calcularMedia(o.divisores[d.nome]) * d.peso); return Math.round(total); }
     function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(o.divisores[d.nome]) + '%'; }); const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%'; if(tG) tG.innerText = g + '%'; }
 
-    function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; const id = Date.now(); const nome = input.value.trim(); obras.push({ id, nome, divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; houveAlteracao = true; renderizarObras(); }
-    function adicionarSubdivisao(obraId, macro) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const key = btoa(unescape(encodeURIComponent(macro))); const inputSingle = document.getElementById(`input-${obraId}-${key}`); const txtLote = document.getElementById(`loteObra-${obraId}-${key}`); const obra = obras.find(o => o.id == obraId); if (!obra) return; if(txtLote && txtLote.value.trim()) { let lines = txtLote.value.split('\n'); lines.forEach(linha => { let nomeItem = linha.trim(); if(nomeItem) { const subId = Date.now() + Math.floor(Math.random() * 1000); obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 }); } }); txtLote.value = ''; } else if(inputSingle && inputSingle.value.trim()) { const subId = Date.now(); const nomeItem = inputSingle.value.trim(); obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 }); inputSingle.value = ''; } houveAlteracao = true; renderizarObras(); }
+    function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; const id = gerarUUID(); const nome = input.value.trim(); obras.push({ id, nome, divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; houveAlteracao = true; renderizarObras(); }
+    function adicionarSubdivisao(obraId, macro) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const key = btoa(unescape(encodeURIComponent(macro))); const inputSingle = document.getElementById(`input-${obraId}-${key}`); const txtLote = document.getElementById(`loteObra-${obraId}-${key}`); const obra = obras.find(o => o.id == obraId); if (!obra) return; if(txtLote && txtLote.value.trim()) { let lines = txtLote.value.split('\n'); lines.forEach(linha => { let nomeItem = grandfather = linha.trim(); if(nomeItem) { const subId = gerarUUID(); obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 }); } }); txtLote.value = ''; } else if(inputSingle && inputSingle.value.trim()) { const subId = gerarUUID(); const nomeItem = inputSingle.value.trim(); obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 }); inputSingle.value = ''; } houveAlteracao = true; renderizarObras(); }
     function removerSubdivisao(oId, m, sId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const o = obras.find(ob => ob.id == oId); if (o) { o.divisores[m] = o.divisores[m].filter(s => s.id != sId); houveAlteracao = true; renderizarObras(); } }
     function deletarObra(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover obra?')) { obras = obras.filter(o => o.id != id); houveAlteracao = true; renderizarObras(); } }
     function atualizarPorcentagemSub(obraId, macro, subId, val) { if(usuarioAtualPermissoes === "ver") return; const obra = obras.find(o => o.id == obraId); if (obra) { const sub = obra.divisores[macro].find(s => s.id == subId); if (sub) { sub.porcentagem = parseInt(val); document.getElementById(`lbl-${subId}`).innerText = val + '%'; houveAlteracao = true; recarculaValoresObra(obra); } } }
 
     function renderizarObras() {
         const lista = document.getElementById('listaObras'); lista.innerHTML = '';
-        if (!obras.length) { lista.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; margin-top:20px;">Nenhuma obra ativa.</p>'; return; }
-        obras.forEach(o => {
+        const termoBusca = document.getElementById("searchObras").value.toLowerCase().trim();
+        const filtradas = obras.filter(o => o.nome.toLowerCase().includes(termoBusca));
+
+        if (!filtradas.length) { lista.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; margin-top:20px;">Nenhuma obra ativa com esses termos.</p>'; return; }
+        filtradas.forEach(o => {
             const glob = calcularTotalObra(o); const div = document.createElement('div'); div.className = 'obra-item'; let htmlM = '';
             divConfig.forEach(d => {
                 const subs = o.divisores[d.nome] || []; const mKey = btoa(unescape(encodeURIComponent(d.nome))); let htmlS = '';
                 subs.forEach(s => { 
-                    let controleInput = usuarioAtualPermissoes === "ver" ? "" : `<input type="range" min="0" max="100" value="${s.porcentagem}" oninput="atualizarPorcentagemSub(${o.id},'${d.nome}',${s.id},this.value)">`;
-                    let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerSubdivisao(${o.id},'${d.nome}',${s.id})">✕</button>`;
+                    let controleInput = usuarioAtualPermissoes === "ver" ? "" : `<input type="range" min="0" max="100" value="${s.porcentagem}" oninput="atualizarPorcentagemSub('${o.id}','${d.nome}','${s.id}',this.value)">`;
+                    let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerSubdivisao('${o.id}','${d.nome}','${s.id}')">✕</button>`;
                     htmlS += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div>• ${s.nome}</div><div class="subdivisao-controles"><span id="lbl-${s.id}" style="font-weight:bold; color:#38bdf8;">${s.porcentagem}%</span>${btnExcluir}</div></div>${controleInput}</div>`; 
                 });
-                let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="input-${o.id}-${mKey}" placeholder="Adicionar item..."><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')">+ Add</button></div><div class="lote-box"><div class="lote-title">📦 Inserção em Lote (Andares / Escopo)</div><textarea id="loteObra-${o.id}-${mKey}" rows="2" placeholder="Cole andares aqui (um por linha)..."></textarea><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')" style="background:#38bdf8; color:#0f172a; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote Completo</button></div>`;
+                let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="input-${o.id}-${mKey}" placeholder="Adicionar item..."><button onclick="adicionarSubdivisao('${o.id}','${d.nome}')">+ Add</button></div><div class="lote-box"><div class="lote-title">📦 Inserção em Lote (Andares / Escopo)</div><textarea id="loteObra-${o.id}-${mKey}" rows="2" placeholder="Cole andares aqui (um por linha)..."></textarea><button onclick="adicionarSubdivisao('${o.id}','${d.nome}')" style="background:#38bdf8; color:#0f172a; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote Completo</button></div>`;
                 htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(subs)}%</span></div></div><div>${htmlS || '<p style="font-size:12px; color:#64748b;">Nenhum item.</p>'}</div>${formAddHTML}</div>`;
             });
-            let btnRemoverObra = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" onclick="deletarObra(${o.id})">Remover Obra</button>`;
+            let btnRemoverObra = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" onclick="deletarObra('${o.id}')">Remover Obra</button>`;
             div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo">${o.nome}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}${btnRemoverObra}</div>`;
             lista.appendChild(div);
         });
     }
 
-    function criarClienteManutencao() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('maintClienteNome'); const periodicidade = document.getElementById('maintPeriodicidade').value; const dataInicio = document.getElementById('maintDataInicio').value; if (!input.value.trim() || !dataInicio) return; const id = Date.now(); clientesMaint.push({ id, nome: input.value.trim(), periodicidade, dataInicio, sistemas: {} }); input.value = ''; houveAlteracao = true; renderizarMaint(); renderizarAgendaPCM(); }
+    function criarClienteManutencao() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('maintClienteNome'); const periodicidade = document.getElementById('maintPeriodicidade').value; const dataInicio = document.getElementById('maintDataInicio').value; if (!input.value.trim() || !dataInicio) return; const id = gerarUUID(); clientesMaint.push({ id, nome: input.value.trim(), periodicidade, dataInicio, sistemas: {} }); input.value = ''; houveAlteracao = true; renderizarMaint(); renderizarAgendaPCM(); }
     function adicionarSistema(cliId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById(`addSys-${cliId}`); const sysNome = input.value.trim(); if (!sysNome) return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && !cli.sistemas[sysNome]) { cli.sistemas[sysNome] = []; houveAlteracao = true; renderizarMaint(); } }
     function removerSistema(cId, s) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover sistema?')) { const c = clientesMaint.find(cl => cl.id == cId); if (c) { delete c.sistemas[s]; houveAlteracao = true; renderizarMaint(); } } }
     function deletarClienteMaint(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover planta?')) { clientesMaint = clientesMaint.filter(c => c.id != id); houveAlteracao = true; renderizarMaint(); renderizarAgendaPCM(); } }
     function removerEquip(cId, s, eId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const c = clientesMaint.find(cl => cl.id == cId); if (c && c.sistemas[s]) { c.sistemas[s] = c.sistemas[s].filter(e => e.id != eId); houveAlteracao = true; renderizarMaint(); } }
-    function alternarStatusEquip(cliId, sysNome, eqId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.status = eq.status === 'Pendente' ? 'Concluído' : 'Pendente'; houveAlteracao = true; renderizarMaint(); } } }
-    function atualizarDataEquip(cliId, sysNome, eqId, novaData) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.data = novaData; houveAlteracao = true; renderizarMaint(); } } }
-    function atualizarObsEquip(cliId, sysNome, eqId, texto) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.obs = texto; houveAlteracao = true; } } }
+    function alternarStatusEquip(cId, s, eId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const c = clientesMaint.find(cl => cl.id == cId); if (c && c.sistemas[s]) { const eq = c.sistemas[s].find(e => e.id == eId); if (eq) { eq.status = eq.status === 'Pendente' ? 'Concluído' : 'Pendente'; houveAlteracao = true; renderizarMaint(); } } }
+    function atualizarDataEquip(cId, s, eId, n) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const c = clientesMaint.find(cl => cl.id == cId); if (c && c.sistemas[s]) { const eq = c.sistemas[s].find(e => e.id == eId); if (eq) { eq.data = n; houveAlteracao = true; renderizarMaint(); } } }
+    function atualizarObsEquip(cId, s, eId, t) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const c = clientesMaint.find(cl => cl.id == cId); if (c && c.sistemas[s]) { const eq = c.sistemas[s].find(e => e.id == eId); if (eq) { eq.obs = t; houveAlteracao = true; } } }
     function ArrayAgruparPor(array, chave) { return array.reduce((acc, item) => { const group = item[chave] || "Sem Andar/Local"; if (!acc[group]) acc[group] = []; acc[group].push(item); return acc; }, {}); }
 
     function adicionarEquipamento(cliId, sysNome) { 
@@ -639,14 +667,14 @@
             lines.forEach((linha, idx) => {
                 let nomeEq = linha.trim();
                 if(nomeEq) {
-                    const eqId = Date.now() + Math.floor(Math.random() * 10000);
+                    const eqId = gerarUUID();
                     let tagEq = (inputTag && inputTag.value.trim()) ? `${inputTag.value.trim()}-${idx+1}` : `TAG-${idx+1}`;
                     cli.sistemas[sysNome].push({ id: eqId, nome: nomeEq, tag: tagEq, status: 'Pendente', tipo: tipoEq, andar: andarEq, data: dataHoje, obs: '' }); 
                 }
             });
             txtLote.value = '';
         } else if(inputNome && inputNome.value.trim()) {
-            const eqId = Date.now(); const nomeEq = inputNome.value.trim(); const tagEq = inputTag.value.trim() || 'S/T';
+            const eqId = gerarUUID(); const nomeEq = inputNome.value.trim(); const tagEq = inputTag.value.trim() || 'S/T';
             cli.sistemas[sysNome].push({ id: eqId, nome: nomeEq, tag: tagEq, status: 'Pendente', tipo: tipoEq, andar: andarEq, data: dataHoje, obs: '' }); 
             inputNome.value = ''; if(inputTag) inputTag.value = ''; if(inputAndar) inputAndar.value = '';
         }
@@ -656,15 +684,30 @@
 
     function renderizarMaint() {
         const container = document.getElementById('listaClientesManutencao'); container.innerHTML = '';
+        const termoBusca = document.getElementById("searchMaint").value.toLowerCase().trim();
+
         if (!clientesMaint.length) { container.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; padding:20px;">Nenhuma planta ativa.</p>'; return; }
         
         clientesMaint.forEach(cli => {
-            const divCli = document.createElement('div'); divCli.className = 'client-card'; let htmlSistemas = '';
+            // Filtro dinâmico avançado (planta, sistema ou tag de ativo)
+            let matchesCliente = cli.nome.toLowerCase().includes(termoBusca);
             
+            const divCli = document.createElement('div'); divCli.className = 'client-card'; let htmlSistemas = '';
+            let hasAnyVisibleSystem = false;
+
             if(cli.sistemas) {
                 Object.keys(cli.sistemas).forEach(sysNome => {
+                    let matchesSistema = sysNome.toLowerCase().includes(termoBusca);
+                    let ativosFiltrados = cli.sistemas[sysNome].filter(eq => eq.tag.toLowerCase().includes(termoBusca) || eq.nome.toLowerCase().includes(termoBusca));
+
+                    if(!matchesCliente && !matchesSistema && ativosFiltrados.length === 0) return;
+                    hasAnyVisibleSystem = true;
+
+                    // Se a busca bateu no cliente ou sistema, mostra todos dele, se não mostra só ativos que deram match
+                    let ativosParaRenderizar = (matchesCliente || matchesSistema) ? cli.sistemas[sysNome] : ativosFiltrados;
+
                     const sKey = btoa(unescape(encodeURIComponent(sysNome)));
-                    let andaresAgrupados = ArrayAgruparPor(cli.sistemas[sysNome], "andar");
+                    let andaresAgrupados = ArrayAgruparPor(ativosParaRenderizar, "andar");
                     let htmlBlocoAndaresCompleto = '';
 
                     Object.keys(andaresAgrupados).forEach(nomeAndar => {
@@ -672,11 +715,11 @@
                         
                         andaresAgrupados[nomeAndar].forEach(eq => { 
                             const bClass = eq.status === 'Concluído' ? 'badge-ok' : 'badge-pending';
-                            let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerEquip(${cli.id},'${sysNome}',${eq.id})">✕</button>`;
-                            let inputDataHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8;">${eq.data.split('-').reverse().join('/')}</span>` : `<input type="date" value="${eq.data}" style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarDataEquip(${cli.id},'${sysNome}',${eq.id},this.value)">`;
-                            let inputObsHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8; font-style:italic;">${eq.obs || 'Sem notas'}</span>` : `<input type="text" value="${eq.obs}" placeholder="Notas..." style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarObsEquip(${cli.id},'${sysNome}',${eq.id},this.value)">`;
+                            let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerEquip('${cli.id}','${sysNome}','${eq.id}')">✕</button>`;
+                            let inputDataHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8;">${eq.data.split('-').reverse().join('/')}</span>` : `<input type="date" value="${eq.data}" style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarDataEquip('${cli.id}','${sysNome}','${eq.id}',this.value)">`;
+                            let inputObsHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8; font-style:italic;">${eq.obs || 'Sem notas'}</span>` : `<input type="text" value="${eq.obs}" placeholder="Notas..." style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarObsEquip('${cli.id}','${sysNome}','${eq.id}',this.value)">`;
 
-                            let htmlEquipRow = `<div class="equip-row" onclick="event.stopPropagation()"><div class="equip-top"><span class="equip-name">ID: ${eq.tag} — ${eq.nome}</span><div style="display:flex; align-items:center; gap:8px;"><span class="badge ${bClass}" onclick="alternarStatusEquip(${cli.id},'${sysNome}',${eq.id})">${eq.status}</span>${btnExcluir}</div></div><div class="equip-inputs-grid"><div>${inputDataHTML}</div><div>${inputObsHTML}</div></div></div>`; 
+                            let htmlEquipRow = `<div class="equip-row" onclick="event.stopPropagation()"><div class="equip-top"><span class="equip-name">ID: ${eq.tag} — ${eq.nome}</span><div style="display:flex; align-items:center; gap:8px;"><span class="badge ${bClass}" onclick="alternarStatusEquip('${cli.id}','${sysNome}','${eq.id}')">${eq.status}</span>${btnExcluir}</div></div><div class="equip-inputs-grid"><div>${inputDataHTML}</div><div>${inputObsHTML}</div></div></div>`; 
                             if(eq.tipo === "Corretiva") htmlCorretivas += htmlEquipRow; else htmlPreventivas += htmlEquipRow;
                         });
 
@@ -690,8 +733,8 @@
                             </div>`;
                     });
 
-                    let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="flex-direction:column; background:#0f172a; padding:8px; border-radius:6px; margin-top:10px;"><div style="display:flex; gap:4px; width:100%; margin-bottom: 5px;"><input type="text" id="eqAndar-${cli.id}-${sKey}" placeholder="Andar/Local (Ex: 4º Andar)" style="font-size:12px; padding:6px;"><select id="eqTipo-${cli.id}-${sKey}" style="font-size:12px; padding:6px; width:120px;"><option value="Preventiva">Preventiva</option><option value="Corretiva">Corretiva</option></select></div><div style="display:flex; gap:4px; width:100%;"><input type="text" id="eqTag-${cli.id}-${sKey}" placeholder="Tag/Base (Ex: FAN-01)" style="font-size:12px; padding:6px;"><input type="text" id="eqNome-${cli.id}-${sKey}" placeholder="Equipamento Único" style="font-size:12px; padding:6px;"></div><button onclick="adicionarEquipamento(${cli.id},'${sysNome}')" style="font-size:12px; padding:5px; width:100%; background:#334155; margin-top:5px;">+ Alocar Ativo Único</button></div><div class="lote-box" style="margin-top:8px;"><div class="lote-title">📦 Inserção em Lote para este Andar/Sistema</div><textarea id="loteMaint-${cli.id}-${sKey}" rows="2" placeholder="Cole os nomes dos equipamentos aqui (um por linha)..."></textarea><button onclick="adicionarEquipamento(${cli.id},'${sysNome}')" style="background:#2563eb; color:#fff; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote no Andar Configurado</button></div>`;
-                    let btnRemoverSistema = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" style="font-size:11px;" onclick="removerSistema(${cli.id},'${sysNome}')">Remover</button>`;
+                    let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="flex-direction:column; background:#0f172a; padding:8px; border-radius:6px; margin-top:10px;"><div style="display:flex; gap:4px; width:100%; margin-bottom: 5px;"><input type="text" id="eqAndar-${cli.id}-${sKey}" placeholder="Andar/Local (Ex: 4º Andar)" style="font-size:12px; padding:6px;"><select id="eqTipo-${cli.id}-${sKey}" style="font-size:12px; padding:6px; width:120px;"><option value="Preventiva">Preventiva</option><option value="Corretiva">Corretiva</option></select></div><div style="display:flex; gap:4px; width:100%;"><input type="text" id="eqTag-${cli.id}-${sKey}" placeholder="Tag/Base (Ex: FAN-01)" style="font-size:12px; padding:6px;"><input type="text" id="eqNome-${cli.id}-${sKey}" placeholder="Equipamento Único" style="font-size:12px; padding:6px;"></div><button onclick="adicionarEquipamento('${cli.id}','${sysNome}')" style="font-size:12px; padding:5px; width:100%; background:#334155; margin-top:5px;">+ Alocar Ativo Único</button></div><div class="lote-box" style="margin-top:8px;"><div class="lote-title">📦 Inserção em Lote para este Andar/Sistema</div><textarea id="loteMaint-${cli.id}-${sKey}" rows="2" placeholder="Cole os nomes dos equipamentos aqui (um por linha)..."></textarea><button onclick="adicionarEquipamento('${cli.id}','${sysNome}')" style="background:#2563eb; color:#fff; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote no Andar Configurado</button></div>`;
+                    let btnRemoverSistema = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" style="font-size:11px;" onclick="removerSistema('${cli.id}','${sysNome}')">Remover</button>`;
 
                     htmlSistemas += `
                         <div class="sys-box" onclick="event.stopPropagation()">
@@ -705,8 +748,10 @@
                 });
             }
 
-            let formAddSistemaHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="margin-top:0; margin-bottom:15px;" onclick="event.stopPropagation()"><input type="text" id="addSys-${cli.id}" placeholder="Nome do sistema"><button onclick="adicionarSistema(${cli.id})">+ Alocar Sistema</button></div>`;
-            let btnRemoverPlanta = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" style="margin-top:15px; width:100%;" onclick="deletarClienteMaint(${cli.id})">Remover Planta</button>`;
+            if(!matchesCliente && !hasAnyVisibleSystem) return;
+
+            let formAddSistemaHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="margin-top:0; margin-bottom:15px;" onclick="event.stopPropagation()"><input type="text" id="addSys-${cli.id}" placeholder="Nome do sistema"><button onclick="adicionarSistema('${cli.id}')">+ Alocar Sistema</button></div>`;
+            let btnRemoverPlanta = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" style="margin-top:15px; width:100%;" onclick="deletarClienteMaint('${cli.id}')">Remover Planta</button>`;
 
             divCli.innerHTML = `<div class="client-header" onclick="document.getElementById('cliCorpo-${cli.id}').classList.toggle('active')"><div class="client-title">🏢 Planta: ${cli.nome}</div></div><div class="client-body" id="cliCorpo-${cli.id}">${formAddSistemaHTML}${htmlSistemas}<div class="client-chart-container"><canvas id="chart-cli-${cli.id}"></canvas></div>${btnRemoverPlanta}</div>`; 
             container.appendChild(divCli);
