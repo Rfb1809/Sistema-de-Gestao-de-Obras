@@ -80,6 +80,7 @@
         .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; text-align: center; cursor: pointer; }
         .badge-ok { background: #15803d; color: #dcfce7; }
         .badge-pending { background: #b45309; color: #fef9c3; }
+        .badge-danger { background: #991b1b; color: #fee2e2; }
 
         .agenda-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
         .agenda-table th, .agenda-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
@@ -104,8 +105,8 @@
         .btn-danger { background-color: #dc2626; padding: 8px 15px; font-size: 14px; border: none; border-radius: 8px; color: white; cursor: pointer; }
         .btn-danger:hover { background-color: #b91c1c; }
         .btn-delete-sub { background: none; border: none; color: #f87171; cursor: pointer; font-size: 13px; font-weight: bold; margin-left: 10px; }
-        .sub-form { display: flex; gap: 8px; margin-top: 10px; }
-        .sub-form input, .sub-form textarea, .sub-form select { flex: 1; padding: 8px; font-size: 14px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 6px; }
+        .sub-form { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+        .sub-form input, .sub-form textarea, .sub-form select { flex: 1; min-width: 150px; padding: 8px; font-size: 14px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 6px; }
         .sub-form button { padding: 8px 12px; font-size: 13px; background-color: #4b5563; color: #f3f4f6; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
         
         .lote-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
@@ -139,8 +140,8 @@
         <div id="loadingBanner" class="loading-banner"></div>
         
         <div class="actions-bar">
-            <button class="btn-export-master" onclick="exportarBancoParaExcel()">💾 Exportar Banco (.XLSX)</button>
-            <button class="btn-import-master operar-only" onclick="document.getElementById('inputImportExcel').click()">📂 Importar Planilha Local</button>
+            <button class="btn-export-master admin-only" onclick="exportarBancoParaExcel()">💾 Exportar Banco (.XLSX)</button>
+            <button class="btn-import-master admin-only" onclick="document.getElementById('inputImportExcel').click()">📂 Importar Planilha Local</button>
             <input type="file" id="inputImportExcel" accept=".xlsx, .xls" style="display: none;" onchange="importarBancoDeExcel(this)">
             <button class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
         </div>
@@ -162,6 +163,7 @@
     <div class="tab-menu">
         <button class="tab-btn active" onclick="alternarAba('obras', this)">📁 Obras em Andamento</button>
         <button class="tab-btn" onclick="alternarAba('manutencao', this); renderizarMaint(); renderizarAgendaPCM();">🔧 Planta de Manutenção & PCM</button>
+        <button class="tab-btn" onclick="alternarAba('pessoas', this); renderizarPessoas();">👥 Gestão de Pessoas</button>
     </div>
 
     <div id="tab-obras" class="tab-content active">
@@ -232,12 +234,46 @@
             </div>
         </div>
     </div>
+
+    <div id="tab-pessoas" class="tab-content">
+        <div class="card operar-only">
+            <h3>👥 Cadastrar Novo Colaborador</h3>
+            <div class="sub-form">
+                <input type="text" id="pNome" placeholder="Nome Completo">
+                <div style="flex: 1; min-width: 200px; display: flex; gap: 5px;">
+                    <div style="flex: 1;"><label style="font-size: 11px;">Admissão:</label><input type="date" id="pAdmissao"></div>
+                    <div style="flex: 1;"><label style="font-size: 11px;">Início Férias:</label><input type="date" id="pFeriasInicio"></div>
+                    <div style="flex: 1;"><label style="font-size: 11px;">Fim Férias:</label><input type="date" id="pFeriasFim"></div>
+                </div>
+                <button onclick="criarColaborador()" style="background: #0284c7; margin-top: 18px;">Cadastrar Colaborador</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📋 Painel Geral de Colaboradores e Controle de Férias</h3>
+            <div style="overflow-x: auto;">
+                <table class="agenda-table">
+                    <thead>
+                        <tr>
+                            <th>Nome do Colaborador</th>
+                            <th>Data de Entrada</th>
+                            <th>Período de Férias</th>
+                            <th>Controle de Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpoTabelaPessoas"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
     const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbzmszE3sVm0Qa1U2G4_8O2cidaQOooTWOYBWnlkLmBG5Mn3i8nmHdvymuzpoEYouFl6YA/exec";
     let obras = [];
     let clientesMaint = [];
+    let colaboradores = [];
     let listaGraficosClientes = {};
     let isSincronizando = false;
     let usuarioAtualPermissoes = "ver"; 
@@ -274,11 +310,8 @@
 
             if (resultado.status === "sucesso") {
                 usuarioAtualPermissoes = resultado.perm;
-                
-                // Oculta a tela de bloqueio do Login
                 document.getElementById("tela-login").style.display = "none";
                 
-                // Libera os elementos corretos na tela baseado na permissão que retornou da nuvem
                 if (usuarioAtualPermissoes.includes("operar") || usuarioAtualPermissoes === "master") {
                     document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
                 }
@@ -323,8 +356,10 @@
     async function inicializarApp() {
         localStorage.removeItem("cache_obras");
         localStorage.removeItem("cache_clientes");
+        localStorage.removeItem("cache_colaboradores");
         obras = [];
         clientesMaint = [];
+        colaboradores = [];
         houveAlteracao = false;
         
         await carregarDadosDaNuvem(); 
@@ -359,13 +394,16 @@
     function salvarBackupLocal() {
         localStorage.setItem("cache_obras", JSON.stringify(obras));
         localStorage.setItem("cache_clientes", JSON.stringify(clientesMaint));
+        localStorage.setItem("cache_colaboradores", JSON.stringify(colaboradores));
     }
 
     function carregarBackupLocal() {
         let cacheObras = localStorage.getItem("cache_obras");
         let cacheClientes = localStorage.getItem("cache_clientes");
+        let cachePessoas = localStorage.getItem("cache_colaboradores");
         if(cacheObras) obras = JSON.parse(cacheObras);
         if(cacheClientes) clientesMaint = JSON.parse(cacheClientes);
+        if(cachePessoas) colaboradores = JSON.parse(cachePessoas);
     }
 
     async function transmitirDadosParaNuvem(isSilencioso) {
@@ -382,7 +420,8 @@
             salvarBackupLocal();
             let payload = {
                 obras: obras.map(o => ({ id: o.id, nome: o.nome, dados_divisores: JSON.stringify(o.divisores) })),
-                clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) }))
+                clientes: clientesMaint.map(c => ({ id: c.id, nome: c.nome, periodicidade: c.periodicidade, dataInicio: c.dataInicio, dados_sistemas: JSON.stringify(c.sistemas) })),
+                colaboradores: colaboradores // Envia a chave de pessoas para a nuvem
             };
 
             let formData = new URLSearchParams();
@@ -418,11 +457,8 @@
         }
 
         try {
-            let resposta = await fetch(URL_GOOGLE_API + "?acao=lerDados", {
-                method: "GET",
-                mode: "cors"
-            });
-            let json = await resposta.json();
+            let reply = await fetch(URL_GOOGLE_API + "?acao=lerDados", { method: "GET", mode: "cors" });
+            let json = await reply.json();
 
             if (json.obras) {
                 obras = json.obras.map(o => ({
@@ -437,18 +473,23 @@
                     sistemas: c.dados_sistemas ? JSON.parse(c.dados_sistemas) : {}
                 }));
             }
+            if (json.colaboradores) {
+                colaboradores = json.colaboradores;
+            }
 
             salvarBackupLocal();
             renderizarObras(); 
             renderizarMaint(); 
             renderizarAgendaPCM();
+            renderizarPessoas();
 
         } catch (erro) {
-            console.error("Erro ao ler dados da nuvem, carregando backup local:", erro);
+            console.error("Erro na nuvem, acionando backup offline:", erro);
             carregarBackupLocal();
             renderizarObras(); 
             renderizarMaint(); 
             renderizarAgendaPCM();
+            renderizarPessoas();
         } finally {
             if(banner && !isSilencioso) banner.style.display = "none";
         }
@@ -461,61 +502,216 @@
         setInterval(async () => { await salvarEAtualizarPelaPlanilhaSilencioso(); }, 30000);
     }
 
-    function importarBancoDeExcel(inputElement) {
-        if (usuarioAtualPermissoes === "ver") return;
-        const arquivo = inputElement.files[0];
-        if (!arquivo) return;
-        const banner = document.getElementById("loadingBanner");
-        if(banner) { banner.style.display = "block"; banner.innerText = "📂 Importando planilha local..."; }
+    // GESTÃO DE PESSOAS - FUNÇÕES INTERNAS
+    function criarColaborador() {
+        if(usuarioAtualPermissoes === "ver") return;
+        const nome = document.getElementById('pNome').value.trim();
+        const admissao = document.getElementById('pAdmissao').value;
+        const fInicio = document.getElementById('pFeriasInicio').value;
+        const fFim = document.getElementById('pFeriasFim').value;
 
-        const leitor = new FileReader();
-        leitor.onload = function(e) {
-            try {
-                const dadosBinarios = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(dadosBinarios, { type: 'array' });
-                
-                let obterDadosAba = (nomeAba) => {
-                    let ws = workbook.Sheets[nomeAba];
-                    if(!ws) return [];
-                    return XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-                };
+        if(!nome || !admissao) return alert("Nome e Data de Entrada são obrigatórios!");
 
-                let dadosMacro = obterDadosAba("BD_Obras_Macro");
-                let dadosSubs = obterDadosAba("BD_Obras_Subdivisoes");
+        const id = Date.now();
+        colaboradores.push({ id, nome, admissao, fInicio, fFim });
+        
+        document.getElementById('pNome').value = '';
+        document.getElementById('pAdmissao').value = '';
+        document.getElementById('pFeriasInicio').value = '';
+        document.getElementById('pFeriasFim').value = '';
 
-                obras = [];
-                for(let i = 1; i < dadosMacro.length; i++) {
-                    if(!dadosMacro[i][0]) continue;
-                    obras.push({
-                        id: dadosMacro[i][0], nome: dadosMacro[i][1],
-                        divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] }
-                    });
-                }
-                for(let i = 1; i < dadosSubs.length; i++) {
-                    if(!dadosSubs[i][0]) continue;
-                    let oId = dadosSubs[i][1]; let macro = dadosSubs[i][2]; let obra = obras.find(o => o.id == oId);
-                    if(obra && obra.divisores[macro]) {
-                        let rawPct = dadosSubs[i][4];
-                        let pct = 0;
-                        if(typeof rawPct === 'string') pct = parseInt(rawPct.replace("%", "")) || 0;
-                        else if(typeof rawPct === 'number') pct = rawPct <= 1 ? Math.round(rawPct * 100) : rawPct;
-                        obra.divisores[macro].push({ id: dadosSubs[i][0], nome: dadosSubs[i][3], porcentagem: pct });
-                    }
-                }
-                
-                houveAlteracao = true;
-                salvarBackupLocal();
-                renderizarObras(); renderizarMaint(); renderizarAgendaPCM();
-                alert("📊 Banco de dados carregado com sucesso.");
-                if(banner) banner.style.display = "none";
-            } catch(err) {
-                console.error(err);
-                alert("⚠️ Erro ao ler estrutura do XLSX.");
-                if(banner) banner.style.display = "none";
+        houveAlteracao = true;
+        renderizarPessoas();
+    }
+
+    function deletarColaborador(id) {
+        if(usuarioAtualPermissoes === "ver") return;
+        if(confirm("Deseja remover este colaborador da base?")) {
+            colaboradores = colaboradores.filter(p => p.id != id);
+            houveAlteracao = true;
+            renderizarPessoas();
+        }
+    }
+
+    function renderizarPessoas() {
+        const corpo = document.getElementById("corpoTabelaPessoas");
+        if(!corpo) return;
+        corpo.innerHTML = "";
+
+        if(!colaboradores.length) {
+            corpo.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#64748b;">Nenhum colaborador registrado.</td></tr>`;
+            return;
+        }
+
+        colaboradores.forEach(p => {
+            let dtAdmissao = new Date(p.admissao + 'T12:00:00');
+            let hoje = new Date(); // Referência do ano corrente: 2026
+            
+            // Cálculo de Período Aquisitivo (Férias vencidas se tempo de casa > 1 ano)
+            let tempoCasaAnos = (hoje - dtAdmissao) / (1000 * 60 * 60 * 24 * 365.25);
+            let badgeStatus = `<span class="badge badge-pending">A Vencer</span>`;
+            if (tempoCasaAnos >= 1.0) {
+                badgeStatus = `<span class="badge badge-danger">Vencidas</span>`;
             }
-        };
-        leitor.readAsArrayBuffer(arquivo);
-        inputElement.value = '';
+
+            let textoFerias = "Não agendadas";
+            if(p.fInicio && p.fFim) {
+                textoFerias = `${p.fInicio.split('-').reverse().join('/')} até ${p.fFim.split('-').reverse().join('/')}`;
+                badgeStatus = `<span class="badge badge-ok">Gozo Agendado</span>`;
+            }
+
+            let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" style="font-size:14px;" onclick="deletarColaborador(${p.id})">✕</button>`;
+
+            let tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td style="font-weight:bold; color:#f8fafc;">👤 ${p.nome}</td>
+                <td style="color:#cbd5e1;">📅 ${p.admissao.split('-').reverse().join('/')}</td>
+                <td style="color:#38bdf8;">${textoFerias}</td>
+                <td>${badgeStatus}</td>
+                <td>${btnExcluir}</td>
+            `;
+            corpo.appendChild(tr);
+        });
+    }
+
+    // MANUTENÇÃO E OBRAS - COMPATIBILIDADE E RECONSTRUÇÃO
+    function alternarAba(aba, b) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`tab-${aba}`).classList.add('active'); b.classList.add('active'); }
+    function alternarSubAba(subAba, b) { document.querySelectorAll('.sub-tab-content').forEach(c => c.style.display = 'none'); document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`sub-${subAba}`).style.display = 'block'; b.classList.add('active'); }
+    function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
+    function calcularTotalObra(o) { let total = 0; divConfig.forEach(d => total += calcularMedia(o.divisores[d.nome]) * d.peso); return Math.round(total); }
+    function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(o.divisores[d.nome]) + '%'; }); const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%'; if(tG) tG.innerText = g + '%'; }
+
+    function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; const id = Date.now(); const nome = input.value.trim(); obras.push({ id, nome, divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; houveAlteracao = true; renderizarObras(); }
+    function adicionarSubdivisao(obraId, macro) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const key = btoa(unescape(encodeURIComponent(macro))); const inputSingle = document.getElementById(`input-${obraId}-${key}`); const txtLote = document.getElementById(`loteObra-${obraId}-${key}`); const obra = obras.find(o => o.id == obraId); if (!obra) return; if(txtLote && txtLote.value.trim()) { let lines = txtLote.value.split('\n'); lines.forEach(linha => { let nomeItem = linha.trim(); if(nomeItem) { const subId = Date.now() + Math.floor(Math.random() * 1000); obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 }); } }); txtLote.value = ''; } else if(inputSingle && inputSingle.value.trim()) { const subId = Date.now(); const nomeItem = inputSingle.value.trim(); obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 }); inputSingle.value = ''; } houveAlteracao = true; renderizarObras(); }
+    function removerSubdivisao(oId, m, sId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const o = obras.find(ob => ob.id == oId); if (o) { o.divisores[m] = o.divisores[m].filter(s => s.id != sId); houveAlteracao = true; renderizarObras(); } }
+    function deletarObra(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover obra?')) { obras = obras.filter(o => o.id != id); houveAlteracao = true; renderizarObras(); } }
+    function atualizarPorcentagemSub(obraId, macro, subId, val) { if(usuarioAtualPermissoes === "ver") return; const obra = obras.find(o => o.id == obraId); if (obra) { const sub = obra.divisores[macro].find(s => s.id == subId); if (sub) { sub.porcentagem = parseInt(val); document.getElementById(`lbl-${subId}`).innerText = val + '%'; houveAlteracao = true; recarculaValoresObra(obra); } } }
+
+    function renderizarObras() {
+        const lista = document.getElementById('listaObras'); lista.innerHTML = '';
+        if (!obras.length) { lista.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; margin-top:20px;">Nenhuma obra ativa.</p>'; return; }
+        obras.forEach(o => {
+            const glob = calcularTotalObra(o); const div = document.createElement('div'); div.className = 'obra-item'; let htmlM = '';
+            divConfig.forEach(d => {
+                const subs = o.divisores[d.nome] || []; const mKey = btoa(unescape(encodeURIComponent(d.nome))); let htmlS = '';
+                subs.forEach(s => { 
+                    let controleInput = usuarioAtualPermissoes === "ver" ? "" : `<input type="range" min="0" max="100" value="${s.porcentagem}" oninput="atualizarPorcentagemSub(${o.id},'${d.nome}',${s.id},this.value)">`;
+                    let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerSubdivisao(${o.id},'${d.nome}',${s.id})">✕</button>`;
+                    htmlS += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div>• ${s.nome}</div><div class="subdivisao-controles"><span id="lbl-${s.id}" style="font-weight:bold; color:#38bdf8;">${s.porcentagem}%</span>${btnExcluir}</div></div>${controleInput}</div>`; 
+                });
+                let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="input-${o.id}-${mKey}" placeholder="Adicionar item..."><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')">+ Add</button></div><div class="lote-box"><div class="lote-title">📦 Inserção em Lote (Andares / Escopo)</div><textarea id="loteObra-${o.id}-${mKey}" rows="2" placeholder="Cole andares aqui (um por linha)..."></textarea><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')" style="background:#38bdf8; color:#0f172a; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote Completo</button></div>`;
+                htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(subs)}%</span></div></div><div>${htmlS || '<p style="font-size:12px; color:#64748b;">Nenhum item.</p>'}</div>${formAddHTML}</div>`;
+            });
+            let btnRemoverObra = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" onclick="deletarObra(${o.id})">Remover Obra</button>`;
+            div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo">${o.nome}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}${btnRemoverObra}</div>`;
+            lista.appendChild(div);
+        });
+    }
+
+    function criarClienteManutencao() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('maintClienteNome'); const periodicidade = document.getElementById('maintPeriodicidade').value; const dataInicio = document.getElementById('maintDataInicio').value; if (!input.value.trim() || !dataInicio) return; const id = Date.now(); clientesMaint.push({ id, nome: input.value.trim(), periodicidade, dataInicio, sistemas: {} }); input.value = ''; houveAlteracao = true; renderizarMaint(); renderizarAgendaPCM(); }
+    function adicionarSistema(cliId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById(`addSys-${cliId}`); const sysNome = input.value.trim(); if (!sysNome) return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && !cli.sistemas[sysNome]) { cli.sistemas[sysNome] = []; houveAlteracao = true; renderizarMaint(); } }
+    function removerSistema(cId, s) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover sistema?')) { const c = clientesMaint.find(cl => cl.id == cId); if (c) { delete c.sistemas[s]; houveAlteracao = true; renderizarMaint(); } } }
+    function deletarClienteMaint(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover planta?')) { clientesMaint = clientesMaint.filter(c => c.id != id); houveAlteracao = true; renderizarMaint(); renderizarAgendaPCM(); } }
+    function removerEquip(cId, s, eId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const c = clientesMaint.find(cl => cl.id == cId); if (c && c.sistemas[s]) { c.sistemas[s] = c.sistemas[s].filter(e => e.id != eId); houveAlteracao = true; renderizarMaint(); } }
+    function alternarStatusEquip(cliId, sysNome, eqId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.status = eq.status === 'Pendente' ? 'Concluído' : 'Pendente'; houveAlteracao = true; renderizarMaint(); } } }
+    function atualizarDataEquip(cliId, sysNome, eqId, novaData) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.data = novaData; houveAlteracao = true; renderizarMaint(); } } }
+    function atualizarObsEquip(cliId, sysNome, eqId, texto) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.obs = texto; houveAlteracao = true; } } }
+    function ArrayAgruparPor(array, chave) { return array.reduce((acc, item) => { const group = item[chave] || "Sem Andar/Local"; if (!acc[group]) acc[group] = []; acc[group].push(item); return acc; }, {}); }
+
+    function adicionarEquipamento(cliId, sysNome) { 
+        if(window.event) window.event.stopPropagation();
+        if(usuarioAtualPermissoes === "ver") return;
+        const key = btoa(unescape(encodeURIComponent(sysNome))); 
+        const inputNome = document.getElementById(`eqNome-${cliId}-${key}`); 
+        const inputTag = document.getElementById(`eqTag-${cliId}-${key}`); 
+        const inputTipo = document.getElementById(`eqTipo-${cliId}-${key}`); 
+        const inputAndar = document.getElementById(`eqAndar-${cliId}-${key}`); 
+        const txtLote = document.getElementById(`loteMaint-${cliId}-${key}`);
+        const cli = clientesMaint.find(c => c.id == cliId); 
+        if (!cli || !cli.sistemas[sysNome]) return; 
+
+        const tipoEq = inputTipo ? inputTipo.value : "Preventiva";
+        const andarEq = inputAndar ? inputAndar.value.trim() : "";
+        const dataHoje = new Date().toISOString().split('T')[0];
+
+        if(txtLote && txtLote.value.trim()) {
+            let lines = txtLote.value.split('\n');
+            lines.forEach((linha, idx) => {
+                let nomeEq = linha.trim();
+                if(nomeEq) {
+                    const eqId = Date.now() + Math.floor(Math.random() * 10000);
+                    let tagEq = (inputTag && inputTag.value.trim()) ? `${inputTag.value.trim()}-${idx+1}` : `TAG-${idx+1}`;
+                    cli.sistemas[sysNome].push({ id: eqId, nome: nomeEq, tag: tagEq, status: 'Pendente', tipo: tipoEq, andar: andarEq, data: dataHoje, obs: '' }); 
+                }
+            });
+            txtLote.value = '';
+        } else if(inputNome && inputNome.value.trim()) {
+            const eqId = Date.now(); const nomeEq = inputNome.value.trim(); const tagEq = inputTag.value.trim() || 'S/T';
+            cli.sistemas[sysNome].push({ id: eqId, nome: nomeEq, tag: tagEq, status: 'Pendente', tipo: tipoEq, andar: andarEq, data: dataHoje, obs: '' }); 
+            inputNome.value = ''; if(inputTag) inputTag.value = ''; if(inputAndar) inputAndar.value = '';
+        }
+        houveAlteracao = true;
+        renderizarMaint(); 
+    }
+
+    function renderizarMaint() {
+        const container = document.getElementById('listaClientesManutencao'); container.innerHTML = '';
+        if (!clientesMaint.length) { container.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; padding:20px;">Nenhuma planta ativa.</p>'; return; }
+        
+        clientesMaint.forEach(cli => {
+            const divCli = document.createElement('div'); divCli.className = 'client-card'; let htmlSistemas = '';
+            
+            if(cli.sistemas) {
+                Object.keys(cli.sistemas).forEach(sysNome => {
+                    const sKey = btoa(unescape(encodeURIComponent(sysNome)));
+                    let andaresAgrupados = ArrayAgruparPor(cli.sistemas[sysNome], "andar");
+                    let htmlBlocoAndaresCompleto = '';
+
+                    Object.keys(andaresAgrupados).forEach(nomeAndar => {
+                        let htmlPreventivas = ''; let htmlCorretivas = '';
+                        
+                        andaresAgrupados[nomeAndar].forEach(eq => { 
+                            const bClass = eq.status === 'Concluído' ? 'badge-ok' : 'badge-pending';
+                            let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerEquip(${cli.id},'${sysNome}',${eq.id})">✕</button>`;
+                            let inputDataHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8;">${eq.data.split('-').reverse().join('/')}</span>` : `<input type="date" value="${eq.data}" style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarDataEquip(${cli.id},'${sysNome}',${eq.id},this.value)">`;
+                            let inputObsHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8; font-style:italic;">${eq.obs || 'Sem notas'}</span>` : `<input type="text" value="${eq.obs}" placeholder="Notas..." style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarObsEquip(${cli.id},'${sysNome}',${eq.id},this.value)">`;
+
+                            let htmlEquipRow = `<div class="equip-row" onclick="event.stopPropagation()"><div class="equip-top"><span class="equip-name">ID: ${eq.tag} — ${eq.nome}</span><div style="display:flex; align-items:center; gap:8px;"><span class="badge ${bClass}" onclick="alternarStatusEquip(${cli.id},'${sysNome}',${eq.id})">${eq.status}</span>${btnExcluir}</div></div><div class="equip-inputs-grid"><div>${inputDataHTML}</div><div>${inputObsHTML}</div></div></div>`; 
+                            if(eq.tipo === "Corretiva") htmlCorretivas += htmlEquipRow; else htmlPreventivas += htmlEquipRow;
+                        });
+
+                        htmlBlocoAndaresCompleto += `
+                            <div class="andar-container" onclick="event.stopPropagation()">
+                                <div class="andar-header-title">📍 Localização: ${nomeAndar}</div>
+                                <div class="maint-section-title preventiva">🟢 Preventivas</div>
+                                <div>${htmlPreventivas || '<p style="font-size:11px; color:#64748b; padding-left:5px;">Nenhum ativo.</p>'}</div>
+                                <div class="maint-section-title corretiva">🔴 Corretivas</div>
+                                <div>${htmlCorretivas || '<p style="font-size:11px; color:#64748b; padding-left:5px;">Nenhuma quebra.</p>'}</div>
+                            </div>`;
+                    });
+
+                    let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="flex-direction:column; background:#0f172a; padding:8px; border-radius:6px; margin-top:10px;"><div style="display:flex; gap:4px; width:100%; margin-bottom: 5px;"><input type="text" id="eqAndar-${cli.id}-${sKey}" placeholder="Andar/Local (Ex: 4º Andar)" style="font-size:12px; padding:6px;"><select id="eqTipo-${cli.id}-${sKey}" style="font-size:12px; padding:6px; width:120px;"><option value="Preventiva">Preventiva</option><option value="Corretiva">Corretiva</option></select></div><div style="display:flex; gap:4px; width:100%;"><input type="text" id="eqTag-${cli.id}-${sKey}" placeholder="Tag/Base (Ex: FAN-01)" style="font-size:12px; padding:6px;"><input type="text" id="eqNome-${cli.id}-${sKey}" placeholder="Equipamento Único" style="font-size:12px; padding:6px;"></div><button onclick="adicionarEquipamento(${cli.id},'${sysNome}')" style="font-size:12px; padding:5px; width:100%; background:#334155; margin-top:5px;">+ Alocar Ativo Único</button></div><div class="lote-box" style="margin-top:8px;"><div class="lote-title">📦 Inserção em Lote para este Andar/Sistema</div><textarea id="loteMaint-${cli.id}-${sKey}" rows="2" placeholder="Cole os nomes dos equipamentos aqui (um por linha)..."></textarea><button onclick="adicionarEquipamento(${cli.id},'${sysNome}')" style="background:#2563eb; color:#fff; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote no Andar Configurado</button></div>`;
+                    let btnRemoverSistema = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" style="font-size:11px;" onclick="removerSistema(${cli.id},'${sysNome}')">Remover</button>`;
+
+                    htmlSistemas += `
+                        <div class="sys-box" onclick="event.stopPropagation()">
+                            <div class="sys-header">
+                                <span>❄️ Sistema: ${sysNome}</span>
+                                ${btnRemoverSistema}
+                            </div>
+                            ${htmlBlocoAndaresCompleto}
+                            ${formAddHTML}
+                        </div>`;
+                });
+            }
+
+            let formAddSistemaHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="margin-top:0; margin-bottom:15px;" onclick="event.stopPropagation()"><input type="text" id="addSys-${cli.id}" placeholder="Nome do sistema"><button onclick="adicionarSistema(${cli.id})">+ Alocar Sistema</button></div>`;
+            let btnRemoverPlanta = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" style="margin-top:15px; width:100%;" onclick="deletarClienteMaint(${cli.id})">Remover Planta</button>`;
+
+            divCli.innerHTML = `<div class="client-header" onclick="document.getElementById('cliCorpo-${cli.id}').classList.toggle('active')"><div class="client-title">🏢 Planta: ${cli.nome}</div></div><div class="client-body" id="cliCorpo-${cli.id}">${formAddSistemaHTML}${htmlSistemas}<div class="client-chart-container"><canvas id="chart-cli-${cli.id}"></canvas></div>${btnRemoverPlanta}</div>`; 
+            container.appendChild(divCli);
+            atualizarGraficoIndividualCliente(cli);
+        });
     }
 
     function obterFeriadosAno(ano) {
@@ -581,23 +777,15 @@
         setTimeout(() => {
             const ctx = document.getElementById(`chart-cli-${cli.id}`);
             if (!ctx) return;
-
-            let concluidos = 0;
-            let pendentes = 0;
-
+            let concluidos = 0; let pendentes = 0;
             if (cli.sistemas) {
                 Object.keys(cli.sistemas).forEach(sys => {
                     cli.sistemas[sys].forEach(eq => {
-                        if (eq.status === "Concluído") concluidos++;
-                        else pendentes++;
+                        if (eq.status === "Concluído") concluidos++; else pendentes++;
                     });
                 });
             }
-
-            if (listaGraficosClientes[cli.id]) {
-                listaGraficosClientes[cli.id].destroy();
-            }
-
+            if (listaGraficosClientes[cli.id]) { listaGraficosClientes[cli.id].destroy(); }
             listaGraficosClientes[cli.id] = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -610,8 +798,7 @@
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
                         y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
@@ -620,184 +807,6 @@
                 }
             });
         }, 100);
-    }
-
-    function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; const id = Date.now(); const nome = input.value.trim(); obras.push({ id, nome, divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; houveAlteracao = true; renderizarObras(); }
-    
-    function adicionarSubdivisao(obraId, macro) { 
-        if(window.event) window.event.stopPropagation();
-        if(usuarioAtualPermissoes === "ver") return;
-        const key = btoa(unescape(encodeURIComponent(macro)));
-        const inputSingle = document.getElementById(`input-${obraId}-${key}`); 
-        const txtLote = document.getElementById(`loteObra-${obraId}-${key}`);
-        const obra = obras.find(o => o.id == obraId); 
-        if (!obra) return;
-
-        if(txtLote && txtLote.value.trim()) {
-            let lines = txtLote.value.split('\n');
-            lines.forEach(linha => {
-                let nomeItem = linha.trim();
-                if(nomeItem) {
-                    const subId = Date.now() + Math.floor(Math.random() * 1000);
-                    obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 });
-                }
-            });
-            txtLote.value = '';
-        } else if(inputSingle && inputSingle.value.trim()) {
-            const subId = Date.now(); const nomeItem = inputSingle.value.trim(); 
-            obra.divisores[macro].push({ id: subId, nome: nomeItem, porcentagem: 0 }); 
-            inputSingle.value = ''; 
-        }
-        houveAlteracao = true;
-        renderizarObras(); 
-    }
-
-    function atualizarPorcentagemSub(obraId, macro, subId, val) { if(usuarioAtualPermissoes === "ver") return; const obra = obras.find(o => o.id == obraId); if (obra) { const sub = obra.divisores[macro].find(s => s.id == subId); if (sub) { sub.porcentagem = parseInt(val); document.getElementById(`lbl-${subId}`).innerText = val + '%'; houveAlteracao = true; recarculaValoresObra(obra); } } }
-    function criarClienteManutencao() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('maintClienteNome'); const periodicidade = document.getElementById('maintPeriodicidade').value; const dataInicio = document.getElementById('maintDataInicio').value; if (!input.value.trim() || !dataInicio) return; const id = Date.now(); clientesMaint.push({ id, nome: input.value.trim(), periodicidade, dataInicio, sistemas: {} }); input.value = ''; houveAlteracao = true; renderizarMaint(); renderizarAgendaPCM(); }
-    
-    function adicionarSistema(cliId) { 
-        if(window.event) window.event.stopPropagation();
-        if(usuarioAtualPermissoes === "ver") return;
-        const input = document.getElementById(`addSys-${cliId}`); 
-        const sysNome = input.value.trim(); if (!sysNome) return; 
-        const cli = clientesMaint.find(c => c.id == cliId); 
-        if (cli && !cli.sistemas[sysNome]) { cli.sistemas[sysNome] = []; houveAlteracao = true; renderizarMaint(); } 
-    }
-    
-    function adicionarEquipamento(cliId, sysNome) { 
-        if(window.event) window.event.stopPropagation();
-        if(usuarioAtualPermissoes === "ver") return;
-        const key = btoa(unescape(encodeURIComponent(sysNome))); 
-        const inputNome = document.getElementById(`eqNome-${cliId}-${key}`); 
-        const inputTag = document.getElementById(`eqTag-${cliId}-${key}`); 
-        const inputTipo = document.getElementById(`eqTipo-${cliId}-${key}`); 
-        const inputAndar = document.getElementById(`eqAndar-${cliId}-${key}`); 
-        const txtLote = document.getElementById(`loteMaint-${cliId}-${key}`);
-        const cli = clientesMaint.find(c => c.id == cliId); 
-        if (!cli || !cli.sistemas[sysNome]) return; 
-
-        const tipoEq = inputTipo ? inputTipo.value : "Preventiva";
-        const andarEq = inputAndar ? inputAndar.value.trim() : "";
-        const dataHoje = new Date().toISOString().split('T')[0];
-
-        if(txtLote && txtLote.value.trim()) {
-            let lines = txtLote.value.split('\n');
-            lines.forEach((linha, idx) => {
-                let nomeEq = linha.trim();
-                if(nomeEq) {
-                    const eqId = Date.now() + Math.floor(Math.random() * 10000);
-                    let tagEq = (inputTag && inputTag.value.trim()) ? `${inputTag.value.trim()}-${idx+1}` : `TAG-${idx+1}`;
-                    cli.sistemas[sysNome].push({ id: eqId, nome: nomeEq, tag: tagEq, status: 'Pendente', tipo: tipoEq, andar: andarEq, data: dataHoje, obs: '' }); 
-                }
-            });
-            txtLote.value = '';
-        } else if(inputNome && inputNome.value.trim()) {
-            const eqId = Date.now(); const nomeEq = inputNome.value.trim(); const tagEq = inputTag.value.trim() || 'S/T';
-            cli.sistemas[sysNome].push({ id: eqId, nome: nomeEq, tag: tagEq, status: 'Pendente', tipo: tipoEq, andar: andarEq, data: dataHoje, obs: '' }); 
-            inputNome.value = ''; if(inputTag) inputTag.value = ''; if(inputAndar) inputAndar.value = '';
-        }
-        houveAlteracao = true;
-        renderizarMaint(); 
-    }
-    
-    function alternarStatusEquip(cliId, sysNome, eqId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.status = eq.status === 'Pendente' ? 'Concluído' : 'Pendente'; houveAlteracao = true; renderizarMaint(); } } }
-    function atualizarDataEquip(cliId, sysNome, eqId, novaData) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.data = novaData; houveAlteracao = true; renderizarMaint(); } } }
-    function atualizarObsEquip(cliId, sysNome, eqId, texto) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && cli.sistemas[sysNome]) { const eq = cli.sistemas[sysNome].find(e => e.id == eqId); if (eq) { eq.obs = texto; houveAlteracao = true; } } }
-    
-    function ArrayAgruparPor(array, chave) { return array.reduce((acc, item) => { const group = item[chave] || "Sem Andar/Local"; if (!acc[group]) acc[group] = []; acc[group].push(item); return acc; }, {}); }
-    function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
-    function calcularTotalObra(o) { let total = 0; divConfig.forEach(d => total += calcularMedia(o.divisores[d.nome]) * d.peso); return Math.round(total); }
-    function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(o.divisores[d.nome]) + '%'; }); const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%'; if(tG) tG.innerText = g + '%'; }
-    function alternarAba(aba, b) { document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`tab-${aba}`).classList.add('active'); b.classList.add('active'); }
-    function alternarSubAba(subAba, b) { document.querySelectorAll('.sub-tab-content').forEach(c => c.style.display = 'none'); document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(`sub-${subAba}`).style.display = 'block'; b.classList.add('active'); }
-    function removerSubdivisao(oId, m, sId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const o = obras.find(ob => ob.id == oId); if (o) { o.divisores[m] = o.divisores[m].filter(s => s.id != sId); houveAlteracao = true; renderizarObras(); } }
-    function deletarObra(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover obra?')) { obras = obras.filter(o => o.id != id); houveAlteracao = true; renderizarObras(); } }
-    function removerEquip(cId, s, eId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const c = clientesMaint.find(cl => cl.id == cId); if (c && c.sistemas[s]) { c.sistemas[s] = c.sistemas[s].filter(e => e.id != eId); houveAlteracao = true; renderizarMaint(); } }
-    function removerSistema(cId, s) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover sistema?')) { const c = clientesMaint.find(cl => cl.id == cId); if (c) { delete c.sistemas[s]; houveAlteracao = true; renderizarMaint(); } } }
-    function deletarClienteMaint(id) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; if (confirm('Remover planta?')) { clientesMaint = clientesMaint.filter(c => c.id != id); houveAlteracao = true; renderizarMaint(); renderizarAgendaPCM(); } }
-
-    function renderizarObras() {
-        const lista = document.getElementById('listaObras'); lista.innerHTML = '';
-        if (!obras.length) { lista.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; margin-top:20px;">Nenhuma obra ativa.</p>'; return; }
-        obras.forEach(o => {
-            const glob = calcularTotalObra(o); const div = document.createElement('div'); div.className = 'obra-item'; let htmlM = '';
-            divConfig.forEach(d => {
-                const subs = o.divisores[d.nome] || []; const mKey = btoa(unescape(encodeURIComponent(d.nome))); let htmlS = '';
-                subs.forEach(s => { 
-                    let controleInput = usuarioAtualPermissoes === "ver" ? "" : `<input type="range" min="0" max="100" value="${s.porcentagem}" oninput="atualizarPorcentagemSub(${o.id},'${d.nome}',${s.id},this.value)">`;
-                    let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerSubdivisao(${o.id},'${d.nome}',${s.id})">✕</button>`;
-                    htmlS += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div>• ${s.nome}</div><div class="subdivisao-controles"><span id="lbl-${s.id}" style="font-weight:bold; color:#38bdf8;">${s.porcentagem}%</span>${btnExcluir}</div></div>${controleInput}</div>`; 
-                });
-                
-                let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="input-${o.id}-${mKey}" placeholder="Adicionar item..."><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')">+ Add</button></div><div class="lote-box"><div class="lote-title">📦 Inserção em Lote (Andares / Escopo)</div><textarea id="loteObra-${o.id}-${mKey}" rows="2" placeholder="Cole andares aqui (um por linha)..."></textarea><button onclick="adicionarSubdivisao(${o.id},'${d.nome}')" style="background:#38bdf8; color:#0f172a; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote Completo</button></div>`;
-                
-                htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(subs)}%</span></div></div><div>${htmlS || '<p style="font-size:12px; color:#64748b;">Nenhum item.</p>'}</div>${formAddHTML}</div>`;
-            });
-            let btnRemoverObra = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" onclick="deletarObra(${o.id})">Remover Obra</button>`;
-            div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo">${o.nome}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}${btnRemoverObra}</div>`;
-            lista.appendChild(div);
-        });
-    }
-
-    function renderizarMaint() {
-        const container = document.getElementById('listaClientesManutencao'); container.innerHTML = '';
-        if (!clientesMaint.length) { container.innerHTML = '<p style="text-align:center; color:#64748b; font-size:14px; padding:20px;">Nenhuma planta ativa.</p>'; return; }
-        
-        clientesMaint.forEach(cli => {
-            const divCli = document.createElement('div'); divCli.className = 'client-card'; let htmlSistemas = '';
-            
-            if(cli.sistemas) {
-                Object.keys(cli.sistemas).forEach(sysNome => {
-                    const sKey = btoa(unescape(encodeURIComponent(sysNome)));
-                    let andaresAgrupados = ArrayAgruparPor(cli.sistemas[sysNome], "andar");
-                    let htmlBlocoAndaresCompleto = '';
-
-                    Object.keys(andaresAgrupados).forEach(nomeAndar => {
-                        let htmlPreventivas = ''; let htmlCorretivas = '';
-                        
-                        andaresAgrupados[nomeAndar].forEach(eq => { 
-                            const bClass = eq.status === 'Concluído' ? 'badge-ok' : 'badge-pending';
-                            let btnExcluir = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" onclick="removerEquip(${cli.id},'${sysNome}',${eq.id})">✕</button>`;
-                            let inputDataHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8;">${eq.data.split('-').reverse().join('/')}</span>` : `<input type="date" value="${eq.data}" style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarDataEquip(${cli.id},'${sysNome}',${eq.id},this.value)">`;
-                            let inputObsHTML = usuarioAtualPermissoes === "ver" ? `<span style="color:#94a3b8; font-style:italic;">${eq.obs || 'Sem notas'}</span>` : `<input type="text" value="${eq.obs}" placeholder="Notas..." style="padding:4px; font-size:11px; background:#1e293b;" onchange="atualizarObsEquip(${cli.id},'${sysNome}',${eq.id},this.value)">`;
-
-                            let htmlEquipRow = `<div class="equip-row" onclick="event.stopPropagation()"><div class="equip-top"><span class="equip-name">ID: ${eq.tag} — ${eq.nome}</span><div style="display:flex; align-items:center; gap:8px;"><span class="badge ${bClass}" onclick="alternarStatusEquip(${cli.id},'${sysNome}',${eq.id})">${eq.status}</span>${btnExcluir}</div></div><div class="equip-inputs-grid"><div>${inputDataHTML}</div><div>${inputObsHTML}</div></div></div>`; 
-                            if(eq.tipo === "Corretiva") htmlCorretivas += htmlEquipRow; else htmlPreventivas += htmlEquipRow;
-                        });
-
-                        htmlBlocoAndaresCompleto += `
-                            <div class="andar-container" onclick="event.stopPropagation()">
-                                <div class="andar-header-title">📍 Localização: ${nomeAndar}</div>
-                                <div class="maint-section-title preventiva">🟢 Preventivas</div>
-                                <div>${htmlPreventivas || '<p style="font-size:11px; color:#64748b; padding-left:5px;">Nenhum ativo.</p>'}</div>
-                                <div class="maint-section-title corretiva">🔴 Corretivas</div>
-                                <div>${htmlCorretivas || '<p style="font-size:11px; color:#64748b; padding-left:5px;">Nenhuma quebra.</p>'}</div>
-                            </div>`;
-                    });
-
-                    let formAddHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="flex-direction:column; background:#0f172a; padding:8px; border-radius:6px; margin-top:10px;"><div style="display:flex; gap:4px; width:100%; margin-bottom: 5px;"><input type="text" id="eqAndar-${cli.id}-${sKey}" placeholder="Andar/Local (Ex: 4º Andar — Opcional)" style="font-size:12px; padding:6px;"><select id="eqTipo-${cli.id}-${sKey}" style="font-size:12px; padding:6px; width:120px;"><option value="Preventiva">Preventiva</option><option value="Corretiva">Corretiva</option></select></div><div style="display:flex; gap:4px; width:100%;"><input type="text" id="eqTag-${cli.id}-${sKey}" placeholder="Tag/Base (Ex: FAN-01)" style="font-size:12px; padding:6px;"><input type="text" id="eqNome-${cli.id}-${sKey}" placeholder="Equipamento Único" style="font-size:12px; padding:6px;"></div><button onclick="adicionarEquipamento(${cli.id},'${sysNome}')" style="font-size:12px; padding:5px; width:100%; background:#334155; margin-top:5px;">+ Alocar Ativo Único</button></div><div class="lote-box" style="margin-top:8px;"><div class="lote-title">📦 Inserção em Lote para este Andar/Sistema</div><textarea id="loteMaint-${cli.id}-${sKey}" rows="2" placeholder="Cole os nomes dos equipamentos aqui (um por linha)..."></textarea><button onclick="adicionarEquipamento(${cli.id},'${sysNome}')" style="background:#2563eb; color:#fff; border:none; padding:5px; font-weight:bold; border-radius:4px; font-size:11px;">+ Add Lote no Andar Configurado</button></div>`;
-
-                    let btnRemoverSistema = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-delete-sub" style="font-size:11px;" onclick="removerSistema(${cli.id},'${sysNome}')">Remover</button>`;
-
-                    htmlSistemas += `
-                        <div class="sys-box" onclick="event.stopPropagation()">
-                            <div class="sys-header">
-                                <span>❄️ Sistema: ${sysNome}</span>
-                                ${btnRemoverSistema}
-                            </div>
-                            ${htmlBlocoAndaresCompleto}
-                            ${formAddHTML}
-                        </div>`;
-                });
-            }
-
-            let formAddSistemaHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" style="margin-top:0; margin-bottom:15px;" onclick="event.stopPropagation()"><input type="text" id="addSys-${cli.id}" placeholder="Nome do sistema"><button onclick="adicionarSistema(${cli.id})">+ Alocar Sistema</button></div>`;
-            let btnRemoverPlanta = usuarioAtualPermissoes === "ver" ? "" : `<button class="btn-danger" style="margin-top:15px; width:100%;" onclick="deletarClienteMaint(${cli.id})">Remover Planta</button>`;
-
-            divCli.innerHTML = `<div class="client-header" onclick="document.getElementById('cliCorpo-${cli.id}').classList.toggle('active')"><div class="client-title">🏢 Planta: ${cli.nome}</div></div><div class="client-body" id="cliCorpo-${cli.id}">${formAddSistemaHTML}${htmlSistemas}<div class="client-chart-container"><canvas id="chart-cli-${cli.id}"></canvas></div>${btnRemoverPlanta}</div>`; 
-            container.appendChild(divCli);
-            atualizarGraficoIndividualCliente(cli);
-        });
     }
 </script>
 </body>
