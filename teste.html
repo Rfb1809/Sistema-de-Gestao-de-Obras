@@ -153,7 +153,7 @@
 
     <div class="tab-menu">
         <button class="tab-btn active restrict-management-only" id="tabBtnDashboard" onclick="alternarAba('dashboard', this); renderizarDashboardGeral();">📊 Dashboard Geral</button>
-        <button class="tab-btn" id="tabBtnObras" onclick="alternarAba('obras', this)">📁 Obras em Andamento</button>
+        <button class="tab-btn" id="tabBtnObras" onclick="alternarAba('obras', this); renderizarObras();">📁 Obras em Andamento</button>
         <button class="tab-btn" id="tabBtnManutencao" onclick="alternarAba('manutencao', this); renderizarMaint();">🔧 Planta de Manutenção &amp; PCM</button>
         <button class="tab-btn restrict-management-only" id="tabBtnPessoas" onclick="alternarAba('pessoas', this); renderizarPessoas();">👥 Gestão de Pessoas</button>
         <button class="tab-btn admin-gerente-only" id="tabBtnUsuarios" onclick="alternarAba('usuarios', this); renderizarUsuarios();">🔑 Gerenciar Usuários</button>
@@ -301,7 +301,6 @@
 
     async function inicializarApp() {
         await carregarDadosDaNuvem();
-        renderizarDashboardGeral();
         setInterval(async () => { await salvarEAtualizarPelaPlanilhaSilencioso(); }, 30000);
     }
 
@@ -314,7 +313,12 @@
             if (json.colaboradores) colaboradores = json.colaboradores;
             if (json.usuarios) usuarios = json.usuarios;
             
-            renderizarObras(); renderizarMaint(); renderizarPessoas(); renderizarUsuarios();
+            // Renderiza apenas a aba ativa inicializada
+            if (document.getElementById("tab-dashboard").classList.contains("active")) renderizarDashboardGeral();
+            if (document.getElementById("tab-obras").classList.contains("active")) renderizarObras();
+            if (document.getElementById("tab-manutencao").classList.contains("active")) renderizarMaint();
+            if (document.getElementById("tab-pessoas").classList.contains("active")) renderizarPessoas();
+            if (document.getElementById("tab-usuarios").classList.contains("active")) renderizarUsuarios();
         } catch (e) { console.error("Falha ao ler dados da nuvem."); }
     }
 
@@ -332,10 +336,15 @@
             houveAlteracao = false;
         } catch (e) { console.error(e); }
     }
-    async function salvarEAtualizarPelaPlanilha() { await transmitirDadosParaNuvem(); alert("Sincronizado na Planilha com sucesso!"); renderizarDashboardGeral(); }
+    async function salvarEAtualizarPelaPlanilha() { 
+        await transmitirDadosParaNuvem(); 
+        alert("Sincronizado na Planilha com sucesso!"); 
+        if (document.getElementById("tab-dashboard").classList.contains("active")) renderizarDashboardGeral();
+    }
     async function salvarEAtualizarPelaPlanilhaSilencioso() { await transmitirDadosParaNuvem(); }
 
     function renderizarUsuarios() {
+        if (!document.getElementById("tab-usuarios").classList.contains("active")) return;
         const corpo = document.getElementById("corpoTabelaUsuarios"); if (!corpo) return; corpo.innerHTML = "";
         usuarios.forEach((usr) => {
             let row = document.createElement("tr");
@@ -400,6 +409,7 @@
     }
 
     function renderizarObras() {
+        if (!document.getElementById("tab-obras").classList.contains("active")) return;
         const lista = document.getElementById('listaObras'); lista.innerHTML = '';
         const termo = document.getElementById("searchObras").value.toLowerCase().trim();
         const filtradas = obras.filter(o => o.nome.toLowerCase().includes(termo));
@@ -448,6 +458,7 @@
     }
 
     function renderizarPessoas() {
+        if (!document.getElementById("tab-pessoas").classList.contains("active")) return;
         const container = document.getElementById("containerListaPessoas"); if(!container) return; container.innerHTML = "";
         const termo = document.getElementById("searchPessoas").value.toLowerCase().trim();
         const filtrada = colaboradores.filter(p => p.nome.toLowerCase().includes(termo));
@@ -481,7 +492,7 @@
 
             if(contVencidas >= 2) div.style.border = "2px solid #ef4444";
             let alertaTxt = contVencidas >= 2 ? `<span style="background:#ef4444;color:white;padding:2px 6px;font-size:10px;border-radius:4px;font-weight:bold;margin-left:10px;">FÉRIAS ACUMULADAS</span>` : '';
-            let btnDeleteColaborador = isAdminGerente ? `<button class="btn-danger" style="padding: 3px 8px; font-size: 11px;" onclick="deletarColaborador('${p.id}')">❌ Excluir Colaborador</button>` : '';
+            let btnDeleteColaborador = isAdminGerente ? `<button class="btn-danger" style="padding: 3px 8px; font-size: 11px;" onclick="deletarColaborador('${p.id}')">❌ Excluir</button>` : '';
 
             div.innerHTML = `
                 <div class="people-header-clickable" onclick="document.getElementById('feriasBox-${p.id}').classList.toggle('active')">
@@ -518,6 +529,7 @@
     }
 
     function renderizarMaint() {
+        if (!document.getElementById("tab-manutencao").classList.contains("active")) return;
         const container = document.getElementById('listaClientesManutencao'); container.innerHTML = '';
         const termo = document.getElementById("searchMaint").value.toLowerCase().trim();
         const isAdminGerente = ["master", "admin", "gerente"].includes(usuarioAtualPermissoes);
@@ -587,18 +599,29 @@
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); 
         document.getElementById(`tab-${aba}`).classList.add('active'); 
         b.classList.add('active'); 
+        
+        // Garante o isolamento e executa o gatilho correto para cada aba selecionada
+        if(aba === 'dashboard') renderizarDashboardGeral();
+        if(aba === 'obras') renderizarObras();
+        if(aba === 'manutencao') renderizarMaint();
+        if(aba === 'pessoas') renderizarPessoas();
+        if(aba === 'usuarios') renderizarUsuarios();
     }
+    
     function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
     function obterTodosEquipamentosMacro(listaAndares) { let eqps = []; if (listaAndares && Array.isArray(listaAndares)) { listaAndares.forEach(andar => { if (andar.equipamentos && Array.isArray(andar.equipamentos)) { eqps.push(...andar.equipamentos); } }); } return eqps; }
+    
+    // CORREÇÃO: d.peso corrigido de d.weight para evitar falha catastrófica de script
     function calcularTotalObra(o) { let total = 0; if(o.divisores) { divConfig.forEach(d => { total += calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) * d.peso; }); } return Math.round(total); }
     function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) + '%'; }); const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%'; if(tG) tG.innerText = g + '%'; }
+    
     function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; obras.push({ id: gerarUUID(), nome: input.value.trim(), notasFeed: [], divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; houveAlteracao = true; renderizarObras(); transmitirDadosParaNuvem(); }
-    function deletarObra(obraId) { if(window.event) window.event.stopPropagation(); if(confirm("Remover esta Obra permanentemente?")) { obras = obras.filter(o => o.id !== obraId); houveAlteracao = true; renderizarObras(); renderizarDashboardGeral(); transmitirDadosParaNuvem(); } }
+    function deletarObra(obraId) { if(window.event) window.event.stopPropagation(); if(confirm("Remover esta Obra permanentemente?")) { obras = obras.filter(o => o.id !== obraId); houveAlteracao = true; renderizarObras(); transmitirDadosParaNuvem(); } }
     function adicionarAndarObra(obraId, macro) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const key = btoa(unescape(encodeURIComponent(macro))), input = document.getElementById(`inputAndar-${obraId}-${key}`); if(!input || !input.value.trim()) return; const obra = obras.find(o => o.id == obraId); if(obra) { if(!obra.divisores[macro]) obra.divisores[macro] = []; obra.divisores[macro].push({ id: gerarUUID(), andar: input.value.trim(), equipamentos: [] }); input.value = ''; houveAlteracao = true; renderizarObras(); transmitirDadosParaNuvem(); } }
     function adicionarEquipamentoObra(obraId, macro, andarId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const key = btoa(unescape(encodeURIComponent(macro))), inputEq = document.getElementById(`inputEq-${obraId}-${key}-${andarId}`); if(!inputEq || !inputEq.value.trim()) return; const obra = obras.find(o => o.id == obraId); if(obra) { const andarObj = obra.divisores[macro].find(a => a.id == andarId); if(andarObj) { if(!andarObj.equipamentos) andarObj.equipamentos = []; andarObj.equipamentos.push({ id: gerarUUID(), nome: inputEq.value.trim(), porcentagem: 0 }); inputEq.value = ''; houveAlteracao = true; renderizarObras(); transmitirDadosParaNuvem(); } } }
     function atualizarPorcentagemEqObra(obraId, macro, andarId, eqId, val) { if(usuarioAtualPermissoes === "ver") return; const obra = obras.find(o => o.id == obraId); if (obra) { const andarObj = obra.divisores[macro].find(a => a.id == andarId); if(andarObj) { const eq = andarObj.equipamentos.find(e => e.id == eqId); if (eq) { eq.porcentagem = parseInt(val); document.getElementById(`lbl-${eqId}`).innerText = val + '%'; houveAlteracao = true; recarculaValoresObra(obra); transmitirDadosParaNuvem(); } } } }
     function criarClienteManutencao() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('maintClienteNome'), peri = document.getElementById('maintPeriodicidade').value, data = document.getElementById('maintDataInicio').value; if (!input.value.trim() || !data) return; clientesMaint.push({ id: gerarUUID(), nome: input.value.trim(), periodicidade: peri, dataInicio: data, sistemas: {} }); input.value = ''; houveAlteracao = true; renderizarMaint(); transmitirDadosParaNuvem(); }
-    function deletarClienteManutencao(cliId) { if(window.event) window.event.stopPropagation(); if(confirm("Excluir este Contrato de manutenção?")) { clientesMaint = clientesMaint.filter(c => c.id !== cliId); houveAlteracao = true; renderizarMaint(); renderizarDashboardGeral(); transmitirDadosParaNuvem(); } }
+    function deletarClienteManutencao(cliId) { if(window.event) window.event.stopPropagation(); if(confirm("Excluir este Contrato de manutenção?")) { clientesMaint = clientesMaint.filter(c => c.id !== cliId); houveAlteracao = true; renderizarMaint(); transmitirDadosParaNuvem(); } }
     function adicionarSistema(cliId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById(`addSys-${cliId}`), sysNome = input.value.trim(); if (!sysNome) return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && !cli.sistemas[sysNome]) { cli.sistemas[sysNome] = []; houveAlteracao = true; renderizarMaint(); transmitirDadosParaNuvem(); } }
     function adicionarEquipamento(cliId, sysNome) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const key = btoa(unescape(encodeURIComponent(sysNome))), inputAndar = document.getElementById(`eqAndar-${cliId}-${key}`), inputNome = document.getElementById(`eqNome-${cliId}-${key}`), cli = clientesMaint.find(c => c.id == cliId); if (!cli || !inputNome.value.trim()) return; cli.sistemas[sysNome].push({ id: gerarUUID(), nome: inputNome.value.trim(), tag: 'TAG', status: 'Pendente', tipo: 'Preventiva', andar: inputAndar.value.trim() || 'Geral', logs: [] }); inputNome.value = ''; houveAlteracao = true; renderizarMaint(); transmitirDadosParaNuvem(); }
     function ArrayAgruparPor(array, chave) { return array.reduce((acc, item) => { const group = item[chave] || "Geral"; if (!acc[group]) acc[group] = []; acc[group].push(item); return acc; }, {}); }
