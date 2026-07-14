@@ -37,8 +37,9 @@
         .tab-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
         .tab-btn.active { background: #0284c7; color: white; border-color: #38bdf8; }
         
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        /* CONTROLE RIGOROSO DE EXIBIÇÃO DE CONTEÚDO POR ABA ACESSADA */
+        .tab-content { display: none !important; }
+        .tab-content.active { display: block !important; }
 
         .sub-tab-menu { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px; background: #0f172a; padding: 6px; border-radius: 8px; border: 1px solid #334155; }
         .sub-tab-btn { background: transparent; border: none; color: #94a3b8; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -83,12 +84,6 @@
         .user-table th { background: #0f172a; color: #38bdf8; }
         .user-table td button { padding: 5px 10px; font-size: 12px; margin-right: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
-        .agenda-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-        .agenda-table th, .agenda-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
-        .agenda-table th { background: #0f172a; color: #38bdf8; font-weight: bold; }
-
-        .client-chart-container { background: #0f172a; border-radius: 8px; padding: 10px; margin-top: 15px; border: 1px solid #334155; height: 160px; position: relative; }
-
         .obra-item { background: #1e293b; border: 1px solid #334155; border-radius: 10px; margin-bottom: 15px; overflow: hidden; }
         .obra-header { background: #1e293b; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; cursor: pointer; user-select: none; }
         .obra-titulo { font-weight: bold; font-size: 18px; color: #f8fafc; display: flex; align-items: center; gap: 10px; }
@@ -130,7 +125,12 @@
         .kpi-title { font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
         .kpi-val { font-size: 28px; font-weight: bold; color: #38bdf8; }
 
-        .operar-only, .admin-only, .restrict-management-only, .admin-gerente-only { display: none; }
+        /* REGRAS INTERNAS FILTRADAS POR CONTÊINER ATIVO - IMPEDE O VAZAMENTO ENTRE AS ABAS */
+        .tab-content .operar-only, .tab-content .admin-only, .tab-content .restrict-management-only, .tab-content .admin-gerente-only { display: none; }
+        .tab-content.active .operar-only.show-block { display: block; }
+        .tab-content.active .admin-only.show-block { display: block; }
+        .tab-content.active .restrict-management-only.show-block { display: block; }
+        .tab-content.active .admin-gerente-only.show-block { display: block; }
 
         @media print {
             body { background-color: #fff; color: #000; padding: 0; }
@@ -167,32 +167,32 @@
         <div id="loadingBanner" class="loading-banner"></div>
         
         <div class="actions-bar">
-            <button class="btn-export-master admin-only" onclick="exportarBancoParaExcel()">💾 Exportar Banco (.XLSX)</button>
-            <button class="btn-import-master admin-only" onclick="document.getElementById('inputImportExcel').click()">📂 Importar Planilha Local</button>
+            <button class="btn-export-master" id="actBtnExport" style="display:none;" onclick="exportarBancoParaExcel()">💾 Exportar Banco (.XLSX)</button>
+            <button class="btn-import-master" id="actBtnImport" style="display:none;" onclick="document.getElementById('inputImportExcel').click()">📂 Importar Planilha Local</button>
             <input type="file" id="inputImportExcel" accept=".xlsx, .xls" style="display: none;" onchange="importarBancoDeExcel(this)">
-            <button id="btnCloudSync" class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
+            <button id="btnCloudSync" class="btn-save-cloud" style="display:none;" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
             <button class="btn-print" onclick="window.print()">🖨️ Imprimir Relatório (PDF)</button>
             <button class="btn-logoff" onclick="logoff()">🚪 Sair (Logoff)</button>
         </div>
     </header>
 
     <div class="tab-menu">
-        <button class="tab-btn active restrict-management-only" id="tabBtnDashboard" onclick="alternarAba('dashboard', this);">📊 Dashboard Geral</button>
+        <button class="tab-btn active" id="tabBtnDashboard" style="display:none;" onclick="alternarAba('dashboard', this);">📊 Dashboard Geral</button>
         <button class="tab-btn" id="tabBtnObras" onclick="alternarAba('obras', this);">📁 Obras em Andamento</button>
         <button class="tab-btn" id="tabBtnManutencao" onclick="alternarAba('manutencao', this);">🔧 Planta de Manutenção &amp; PCM</button>
-        <button class="tab-btn restrict-management-only" id="tabBtnPessoas" onclick="alternarAba('pessoas', this);">👥 Gestão de Pessoas</button>
-        <button class="tab-btn admin-gerente-only" id="tabBtnUsuarios" onclick="alternarAba('usuarios', this);">🔑 Gerenciar Usuários</button>
+        <button class="tab-btn" id="tabBtnPessoas" style="display:none;" onclick="alternarAba('pessoas', this);">👥 Gestão de Pessoas</button>
+        <button class="tab-btn" id="tabBtnUsuarios" style="display:none;" onclick="alternarAba('usuarios', this);">🔑 Gerenciar Usuários</button>
     </div>
 
-    <!-- ABA: DASHBOARD (Isolado Completo) -->
-    <div id="tab-dashboard" class="tab-content active restrict-management-only">
-        <div class="kpi-container">
+    <!-- ABA: DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div class="kpi-container restrict-management-only show-block">
             <div class="kpi-box"><div class="kpi-title">Projetos / Obras</div><div class="kpi-val" id="kpiObras">0</div></div>
             <div class="kpi-box"><div class="kpi-title">Plantas Monitoradas</div><div class="kpi-val" id="kpiPlantas">0</div></div>
             <div class="kpi-box"><div class="kpi-title">Ativos Cadastrados</div><div class="kpi-val" id="kpiAtivos">0</div></div>
             <div class="kpi-box"><div class="kpi-title">Alertas de RH</div><div class="kpi-val" id="kpiAlertasRH" style="color:#ef4444;">0</div></div>
         </div>
-        <div class="dashboard-grid">
+        <div class="dashboard-grid restrict-management-only show-block">
             <div class="card"><h3>📊 Progresso das Obras (%)</h3><div style="height:220px;"><canvas id="chartGeralObras"></canvas></div></div>
             <div class="card"><h3>🔧 Status Consolidado dos Ativos</h3><div style="height:220px;"><canvas id="chartGeralAtivos"></canvas></div></div>
         </div>
@@ -229,8 +229,8 @@
     </div>
 
     <!-- ABA: GESTÃO DE PESSOAS -->
-    <div id="tab-pessoas" class="tab-content restrict-management-only">
-        <div class="search-bar-container"><input type="text" class="search-input" id="searchPessoas" placeholder="🔍 Buscar colaborador..." oninput="renderizarPessoas()"></div>
+    <div id="tab-pessoas" class="tab-content">
+        <div class="search-bar-container restrict-management-only show-block"><input type="text" class="search-input" id="searchPessoas" placeholder="🔍 Buscar colaborador..." oninput="renderizarPessoas()"></div>
         <div class="card operar-only">
             <h3>👥 Cadastrar Novo Colaborador</h3>
             <div class="sub-form">
@@ -239,12 +239,12 @@
                 <button onclick="criarColaborador()" style="background: #0284c7; margin-top: 18px;">Cadastrar Colaborador</button>
             </div>
         </div>
-        <div id="containerListaPessoas"></div>
+        <div id="containerListaPessoas" class="restrict-management-only show-block"></div>
     </div>
 
     <!-- ABA: CONFIGURAÇÃO DE USUÁRIOS -->
-    <div id="tab-usuarios" class="tab-content admin-gerente-only">
-        <div class="card">
+    <div id="tab-usuarios" class="tab-content">
+        <div class="card admin-gerente-only show-block">
             <h3>🔑 Gerenciador de Usuários do Sistema</h3>
             <div class="sub-form">
                 <input type="text" id="newUsername" placeholder="Nome do usuário">
@@ -302,21 +302,40 @@
 
     function autenticarUsuarioPainel() {
         document.getElementById("tela-login").style.display = "none";
-        document.querySelectorAll(".operar-only, .admin-only, .restrict-management-only, .admin-gerente-only").forEach(el => el.style.display = "none");
+        
+        // Remove marcações antigas de exibição
+        document.querySelectorAll(".show-block").forEach(el => el.classList.remove("show-block"));
+        document.getElementById("tabBtnDashboard").style.display = "none";
+        document.getElementById("tabBtnPessoas").style.display = "none";
+        document.getElementById("tabBtnUsuarios").style.display = "none";
+        document.getElementById("actBtnExport").style.display = "none";
+        document.getElementById("actBtnImport").style.display = "none";
+        document.getElementById("btnCloudSync").style.display = "none";
 
         const possuiOperacao = usuarioAtualPermissoes.includes("operar") || ["master", "gerente", "admin"].includes(usuarioAtualPermissoes);
         const possuiAdmin = ["master", "admin"].includes(usuarioAtualPermissoes);
         const possuiAdminGerente = ["master", "admin", "gerente"].includes(usuarioAtualPermissoes);
 
-        if (possuiOperacao) document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
-        if (possuiAdmin) document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
-        if (possuiAdminGerente) document.querySelectorAll(".admin-gerente-only").forEach(el => el.style.display = "block");
+        if (possuiOperacao) {
+            document.querySelectorAll(".operar-only").forEach(el => el.classList.add("show-block"));
+            document.getElementById("btnCloudSync").style.display = "block";
+        }
+        if (possuiAdmin) {
+            document.querySelectorAll(".admin-only").forEach(el => el.classList.add("show-block"));
+            document.getElementById("actBtnExport").style.display = "block";
+            document.getElementById("actBtnImport").style.display = "block";
+        }
+        if (possuiAdminGerente) {
+            document.querySelectorAll(".admin-gerente-only").forEach(el => el.classList.add("show-block"));
+            document.getElementById("tabBtnUsuarios").style.display = "block";
+        }
 
         if (possuiAdminGerente) {
-            document.querySelectorAll(".restrict-management-only").forEach(el => el.style.display = "block");
+            document.querySelectorAll(".restrict-management-only").forEach(el => el.classList.add("show-block"));
+            document.getElementById("tabBtnDashboard").style.display = "block";
+            document.getElementById("tabBtnPessoas").style.display = "block";
             alternarAba('dashboard', document.getElementById("tabBtnDashboard"));
         } else {
-            document.querySelectorAll(".restrict-management-only").forEach(el => el.style.display = "none");
             alternarAba('obras', document.getElementById("tabBtnObras"));
         }
         inicializarApp();
