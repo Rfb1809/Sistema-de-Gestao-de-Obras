@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plataforma de Engenharia Predial & PCM Inteligente</title>
+    <title>Plataforma de Engenharia Predial &amp; PCM Inteligente</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
@@ -83,12 +83,6 @@
         .user-table th { background: #0f172a; color: #38bdf8; }
         .user-table td button { padding: 5px 10px; font-size: 12px; margin-right: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
-        .agenda-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-        .agenda-table th, .agenda-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
-        .agenda-table th { background: #0f172a; color: #38bdf8; font-weight: bold; }
-
-        .client-chart-container { background: #0f172a; border-radius: 8px; padding: 10px; margin-top: 15px; border: 1px solid #334155; height: 160px; position: relative; }
-
         .obra-item { background: #1e293b; border: 1px solid #334155; border-radius: 10px; margin-bottom: 15px; overflow: hidden; }
         .obra-header { background: #1e293b; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; cursor: pointer; user-select: none; }
         .obra-titulo { font-weight: bold; font-size: 18px; color: #f8fafc; display: flex; align-items: center; gap: 10px; }
@@ -130,7 +124,7 @@
         .kpi-title { font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
         .kpi-val { font-size: 28px; font-weight: bold; color: #38bdf8; }
 
-        .admin-only, .operar-only, .restrict-management-only, .admin-gerente-only { display: none; }
+        .operar-only, .admin-only, .restrict-management-only, .admin-gerente-only { display: none; }
 
         @media print {
             body { background-color: #fff; color: #000; padding: 0; }
@@ -184,6 +178,7 @@
         <button class="tab-btn admin-gerente-only" id="tabBtnUsuarios" onclick="alternarAba('usuarios', this);">🔑 Gerenciar Usuários</button>
     </div>
 
+    <!-- ABA: DASHBOARD (Isolado com os KPIs e Gráficos inclusos dentro do contêiner da aba) -->
     <div id="tab-dashboard" class="tab-content active restrict-management-only">
         <div class="kpi-container">
             <div class="kpi-box"><div class="kpi-title">Projetos / Obras</div><div class="kpi-val" id="kpiObras">0</div></div>
@@ -197,6 +192,7 @@
         </div>
     </div>
 
+    <!-- ABA: OBRAS -->
     <div id="tab-obras" class="tab-content">
         <div class="search-bar-container"><input type="text" class="search-input" id="searchObras" placeholder="🔍 Buscar por nome da obra..." oninput="renderizarObras()"></div>
         <div class="card operar-only">
@@ -206,6 +202,7 @@
         <div id="listaObras"></div>
     </div>
 
+    <!-- ABA: MANUTENÇÃO -->
     <div id="tab-manutencao" class="tab-content">
         <div id="sub-inventario" class="sub-tab-content" style="display: block;">
             <div class="search-bar-container"><input type="text" class="search-input" id="searchMaint" placeholder="🔍 Buscar por planta, sistema ou TAG..." oninput="renderizarMaint()"></div>
@@ -225,6 +222,7 @@
         </div>
     </div>
 
+    <!-- ABA: GESTÃO DE PESSOAS -->
     <div id="tab-pessoas" class="tab-content restrict-management-only">
         <div class="search-bar-container"><input type="text" class="search-input" id="searchPessoas" placeholder="🔍 Buscar colaborador..." oninput="renderizarPessoas()"></div>
         <div class="card operar-only">
@@ -238,6 +236,7 @@
         <div id="containerListaPessoas"></div>
     </div>
 
+    <!-- ABA: CONFIGURAÇÃO DE USUÁRIOS -->
     <div id="tab-usuarios" class="tab-content admin-gerente-only">
         <div class="card">
             <h3>🔑 Gerenciador de Usuários do Sistema</h3>
@@ -426,7 +425,7 @@
         const obra = obras.find(o => o.id == obraId);
         if (obra) {
             if (!obra.notasFeed) obra.notasFeed = [];
-            obra.notasFeed.push({ id: gerarUUID(), usuario: usuarioLogadoNome, texto: txtArea.value.trim(), dataStamp: new Date().toLocaleString('pt-BR') });
+            obra.notasFeed.push({ id: generarUUID(), usuario: usuarioLogadoNome, texto: txtArea.value.trim(), dataStamp: new Date().toLocaleString('pt-BR') });
             txtArea.value = ""; renderizarObras(); transmitirDadosParaNuvem();
         }
     }
