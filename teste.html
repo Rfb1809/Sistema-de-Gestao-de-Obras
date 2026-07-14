@@ -125,7 +125,7 @@
         .kpi-box { background: #1e293b; border: 1px solid #334155; padding: 15px; border-radius: 8px; text-align: center; }
         .kpi-val { font-size: 24px; font-weight: bold; color: #38bdf8; margin-top: 5px; }
 
-        .admin-only, .operar-only { display: none; }
+        .admin-only, .operar-only, .restrict-management-only { display: none; }
 
         /* ENGINE DE IMPRESSÃO - OCULTA INTERFACE DE GERENCIAMENTO */
         @media print {
@@ -179,6 +179,8 @@
             <select id="newUserPerm" style="max-width: 250px;">
                 <option value="ver">Apenas Ver (Funcionários)</option>
                 <option value="ver,operar">Ver e Operar (Engenheiros / PCM)</option>
+                <option value="gerente">Gerente (Gestão Geral e de Pessoas)</option>
+                <option value="admin">Administrador (Controle Total)</option>
             </select>
             <button onclick="criarNovoUsuario()" style="background: #16a34a;">+ Criar Usuário</button>
         </div>
@@ -188,7 +190,7 @@
         <button class="tab-btn active" onclick="alternarAba('dashboard', this); renderizarDashboardGeral();">📊 Dashboard Geral</button>
         <button class="tab-btn" onclick="alternarAba('obras', this)">📁 Obras em Andamento</button>
         <button class="tab-btn" onclick="alternarAba('manutencao', this); renderizarMaint(); renderizarAgendaPCM();">🔧 Planta de Manutenção & PCM</button>
-        <button class="tab-btn" onclick="alternarAba('pessoas', this); renderizarPessoas();">👥 Gestão de Pessoas</button>
+        <button class="tab-btn restrict-management-only" id="tabBtnPessoas" onclick="alternarAba('pessoas', this); renderizarPessoas();">👥 Gestão de Pessoas</button>
     </div>
 
     <div id="tab-dashboard" class="tab-content active">
@@ -196,7 +198,7 @@
             <div class="kpi-box"><div>Projetos/Obras</div><div class="kpi-val" id="kpiObras">0</div></div>
             <div class="kpi-box"><div>Plantas Monitoradas</div><div class="kpi-val" id="kpiPlantas">0</div></div>
             <div class="kpi-box"><div>Ativos Cadastrados</div><div class="kpi-val" id="kpiAtivos">0</div></div>
-            <div class="kpi-box"><div>Alertas de RH</div><div class="kpi-val" id="kpiAlertasRH" style="color:#ef4444;">0</div></div>
+            <div class="kpi-box restrict-management-only"><div>Alertas de RH</div><div class="kpi-val" id="kpiAlertasRH" style="color:#ef4444;">0</div></div>
         </div>
         <div class="dashboard-grid">
             <div class="card"><h3>📊 Progresso das Obras (%)</h3><div style="height:220px;"><canvas id="chartGeralObras"></canvas></div></div>
@@ -277,8 +279,16 @@
             if (res.status === "sucesso") {
                 usuarioAtualPermissoes = res.perm;
                 document.getElementById("tela-login").style.display = "none";
-                if (usuarioAtualPermissoes.includes("operar") || usuarioAtualPermissoes === "master") document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
-                if (usuarioAtualPermissoes.includes("admin") || usuarioAtualPermissoes === "master") document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
+                
+                // Regras de permissões para exibir elementos dinamicamente na tela
+                const possuiOperacao = usuarioAtualPermissoes.includes("operar") || usuarioAtualPermissoes === "master" || usuarioAtualPermissoes === "gerente" || usuarioAtualPermissoes === "admin";
+                const possuiAdmin = usuarioAtualPermissoes.includes("admin") || usuarioAtualPermissoes === "master";
+                const possuiGestaoPessoas = usuarioAtualPermissoes === "gerente" || usuarioAtualPermissoes === "admin" || usuarioAtualPermissoes === "master";
+
+                if (possuiOperacao) document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
+                if (possuiAdmin) document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
+                if (possuiGestaoPessoas) document.querySelectorAll(".restrict-management-only").forEach(el => el.style.display = "block");
+                
                 await inicializarApp();
             } else { alert("⚠️ " + res.mensagem); btn.disabled = false; btn.innerText = "Entrar"; }
         } catch (e) { alert("❌ Falha de rede."); btn.disabled = false; }
@@ -357,7 +367,10 @@
         });
 
         document.getElementById("kpiAtivos").innerText = totalAtivos;
-        document.getElementById("kpiAlertasRH").innerText = alertasRH;
+        
+        // Proteção contra manipulação se o elemento estiver ocultado pelo CSS
+        const kpiRhElement = document.getElementById("kpiAlertasRH");
+        if(kpiRhElement) kpiRhElement.innerText = alertasRH;
 
         if(chartG1) chartG1.destroy();
         if(chartG2) chartG2.destroy();
