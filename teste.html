@@ -159,6 +159,7 @@
         <button class="tab-btn admin-gerente-only" id="tabBtnUsuarios" onclick="alternarAba('usuarios', this); renderizarUsuarios();">🔑 Gerenciar Usuários</button>
     </div>
 
+    <!-- ABA: DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active restrict-management-only">
         <div class="kpi-container">
             <div class="kpi-box"><div class="kpi-title">Projetos / Obras</div><div class="kpi-val" id="kpiObras">0</div></div>
@@ -172,6 +173,7 @@
         </div>
     </div>
 
+    <!-- ABA: OBRAS -->
     <div id="tab-obras" class="tab-content">
         <div class="search-bar-container"><input type="text" class="search-input" id="searchObras" placeholder="🔍 Buscar por nome da obra..." oninput="renderizarObras()"></div>
         <div class="card operar-only">
@@ -181,6 +183,7 @@
         <div id="listaObras"></div>
     </div>
 
+    <!-- ABA: MANUTENÇÃO -->
     <div id="tab-manutencao" class="tab-content">
         <div id="sub-inventario" class="sub-tab-content" style="display: block;">
             <div class="search-bar-container"><input type="text" class="search-input" id="searchMaint" placeholder="🔍 Buscar por planta, sistema ou TAG..." oninput="renderizarMaint()"></div>
@@ -200,6 +203,7 @@
         </div>
     </div>
 
+    <!-- ABA: GESTÃO DE PESSOAS -->
     <div id="tab-pessoas" class="tab-content restrict-management-only">
         <div class="search-bar-container"><input type="text" class="search-input" id="searchPessoas" placeholder="🔍 Buscar colaborador..." oninput="renderizarPessoas()"></div>
         <div class="card operar-only">
@@ -213,6 +217,7 @@
         <div id="containerListaPessoas"></div>
     </div>
 
+    <!-- ABA: CONFIGURAÇÃO DE USUÁRIOS -->
     <div id="tab-usuarios" class="tab-content admin-gerente-only">
         <div class="card">
             <h3>🔑 Gerenciador de Usuários do Sistema</h3>
@@ -308,18 +313,27 @@
         try {
             let reply = await fetch(URL_GOOGLE_API + "?acao=lerDados");
             let json = await reply.json();
-            if (json.obras) obras = json.obras;
-            if (json.clientes) clientesMaint = json.clientes;
-            if (json.colaboradores) colaboradores = json.colaboradores;
-            if (json.usuarios) usuarios = json.usuarios;
             
-            // Renderiza apenas a aba ativa inicializada
+            // Tratamento explícito para mapear as chaves de notas do back-end com o front-end
+            if (json.obras) {
+                obras = json.obras.map(o => ({
+                    id: o.id,
+                    nome: o.nome,
+                    notasFeed: o.notasFeed ? (typeof o.notasFeed === 'string' ? JSON.parse(o.notasFeed) : o.notasFeed) : (o.blocoNotas ? [{id: gerarUUID(), usuario: 'Sistema', texto: o.blocoNotas, dataStamp: new Date().toLocaleString()}] : []),
+                    divisores: o.divisores || { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] }
+                }));
+            } else { obras = []; }
+            
+            if (json.clientes) clientesMaint = json.clientes; else clientesMaint = [];
+            if (json.colaboradores) colaboradores = json.colaboradores; else colaboradores = [];
+            if (json.usuarios) usuarios = json.usuarios; else usuarios = [];
+            
             if (document.getElementById("tab-dashboard").classList.contains("active")) renderizarDashboardGeral();
             if (document.getElementById("tab-obras").classList.contains("active")) renderizarObras();
             if (document.getElementById("tab-manutencao").classList.contains("active")) renderizarMaint();
             if (document.getElementById("tab-pessoas").classList.contains("active")) renderizarPessoas();
             if (document.getElementById("tab-usuarios").classList.contains("active")) renderizarUsuarios();
-        } catch (e) { console.error("Falha ao ler dados da nuvem."); }
+        } catch (e) { console.error("Falha ao ler dados da nuvem.", e); }
     }
 
     async function transmitirDadosParaNuvem() {
@@ -600,7 +614,6 @@
         document.getElementById(`tab-${aba}`).classList.add('active'); 
         b.classList.add('active'); 
         
-        // Garante o isolamento e executa o gatilho correto para cada aba selecionada
         if(aba === 'dashboard') renderizarDashboardGeral();
         if(aba === 'obras') renderizarObras();
         if(aba === 'manutencao') renderizarMaint();
@@ -611,7 +624,6 @@
     function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
     function obterTodosEquipamentosMacro(listaAndares) { let eqps = []; if (listaAndares && Array.isArray(listaAndares)) { listaAndares.forEach(andar => { if (andar.equipamentos && Array.isArray(andar.equipamentos)) { eqps.push(...andar.equipamentos); } }); } return eqps; }
     
-    // CORREÇÃO: d.peso corrigido de d.weight para evitar falha catastrófica de script
     function calcularTotalObra(o) { let total = 0; if(o.divisores) { divConfig.forEach(d => { total += calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) * d.peso; }); } return Math.round(total); }
     function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) + '%'; }); const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%'; if(tG) tG.innerText = g + '%'; }
     
