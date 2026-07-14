@@ -22,11 +22,13 @@
         
         .loading-banner { background: #0369a1; color: #e0f2fe; padding: 12px; text-align: center; border-radius: 8px; font-weight: bold; margin-bottom: 20px; display: none; }
         
-        .actions-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 5px; flex-wrap: wrap; }
+        .actions-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 5px; flex-wrap: wrap; align-items: center; }
         .btn-export-master { background-color: #16a34a; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
         .btn-import-master { background-color: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
         .btn-save-cloud { background-color: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
         .btn-print { background-color: #eab308; color: #0f172a; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .btn-logoff { background-color: #e11d48; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+        .btn-logoff:hover { background-color: #be123c; }
 
         .search-bar-container { margin-bottom: 15px; }
         .search-input { width: 100%; padding: 10px 15px; background-color: #1e293b; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
@@ -54,7 +56,7 @@
         
         .client-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; margin-bottom: 20px; overflow: hidden; }
         .client-header { background: #1e293b; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; cursor: pointer; }
-        .client-title { font-weight: bold; font-size: 17px; color: #38bdf8; }
+        .client-title { font-weight: bold; font-size: 17px; color: #38bdf8; display: flex; align-items: center; justify-content: space-between; width: 100%; }
         .client-body { padding: 15px; display: none; background: #111827; }
         .client-body.active { display: block; }
         
@@ -100,6 +102,7 @@
         .subdivisao-info { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #f3f4f6; }
         
         .btn-danger { background-color: #dc2626; padding: 8px 15px; font-size: 14px; border: none; border-radius: 8px; color: white; cursor: pointer; }
+        .btn-danger:hover { background-color: #b91c1c; }
         .btn-delete-sub { background: none; border: none; color: #f87171; cursor: pointer; font-size: 13px; font-weight: bold; margin-left: 10px; }
         .sub-form { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
         .sub-form input, .sub-form textarea, .sub-form select { flex: 1; min-width: 150px; padding: 8px; font-size: 14px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 6px; }
@@ -125,7 +128,13 @@
         .kpi-box { background: #1e293b; border: 1px solid #334155; padding: 15px; border-radius: 8px; text-align: center; }
         .kpi-val { font-size: 24px; font-weight: bold; color: #38bdf8; margin-top: 5px; }
 
-        .admin-only, .operar-only, .restrict-management-only { display: none; }
+        /* Estilos da tabela de gerenciamento de usuários */
+        .user-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; }
+        .user-table th, .user-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
+        .user-table th { background: #0f172a; color: #38bdf8; }
+        .user-table td button { padding: 5px 10px; font-size: 12px; margin-right: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+
+        .admin-only, .operar-only, .restrict-management-only, .admin-gerente-only { display: none; }
 
         /* ENGINE DE IMPRESSÃO - OCULTA INTERFACE DE GERENCIAMENTO */
         @media print {
@@ -168,37 +177,52 @@
             <input type="file" id="inputImportExcel" accept=".xlsx, .xls" style="display: none;" onchange="importarBancoDeExcel(this)">
             <button id="btnCloudSync" class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
             <button class="btn-print" onclick="window.print()">🖨️ Imprimir Relatório (PDF)</button>
+            <button class="btn-logoff" onclick="logoff()">🚪 Sair (Logoff)</button>
         </div>
     </header>
 
-    <div class="card admin-only" style="margin-bottom: 20px;">
-        <h3>🔑 Gerenciador de Usuários do Sistema (Acesso Master)</h3>
+    <div class="card admin-gerente-only" style="margin-bottom: 20px;">
+        <h3>🔑 Gerenciador de Usuários do Sistema</h3>
         <div class="sub-form">
             <input type="text" id="newUsername" placeholder="Nome do novo usuário">
             <input type="text" id="newPassword" placeholder="Senha do novo usuário">
             <select id="newUserPerm" style="max-width: 250px;">
                 <option value="ver">Apenas Ver (Funcionários)</option>
                 <option value="ver,operar">Ver e Operar (Engenheiros / PCM)</option>
-                <option value="gerente">Gerente (Gestão Geral e de Pessoas)</option>
-                <option value="admin">Administrador (Controle Total)</option>
+                <option value="gerente">Gerente (Acesso Total e Gestão de Pessoas)</option>
+                <option value="admin">Administrador (Controle e Exclusão Total)</option>
             </select>
             <button onclick="criarNovoUsuario()" style="background: #16a34a;">+ Criar Usuário</button>
+        </div>
+        
+        <div style="margin-top: 15px; overflow-x: auto;">
+            <table class="user-table">
+                <thead>
+                    <tr>
+                        <th>Usuário</th>
+                        <th>Nível de Permissão</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTabelaUsuarios">
+                    </tbody>
+            </table>
         </div>
     </div>
 
     <div class="tab-menu">
-        <button class="tab-btn active" onclick="alternarAba('dashboard', this); renderizarDashboardGeral();">📊 Dashboard Geral</button>
-        <button class="tab-btn" onclick="alternarAba('obras', this)">📁 Obras em Andamento</button>
+        <button class="tab-btn active restrict-management-only" id="tabBtnDashboard" onclick="alternarAba('dashboard', this); renderizarDashboardGeral();">📊 Dashboard Geral</button>
+        <button class="tab-btn" id="tabBtnObras" onclick="alternarAba('obras', this)">📁 Obras em Andamento</button>
         <button class="tab-btn" onclick="alternarAba('manutencao', this); renderizarMaint(); renderizarAgendaPCM();">🔧 Planta de Manutenção & PCM</button>
         <button class="tab-btn restrict-management-only" id="tabBtnPessoas" onclick="alternarAba('pessoas', this); renderizarPessoas();">👥 Gestão de Pessoas</button>
     </div>
 
-    <div id="tab-dashboard" class="tab-content active">
+    <div id="tab-dashboard" class="tab-content active restrict-management-only">
         <div class="kpi-container">
             <div class="kpi-box"><div>Projetos/Obras</div><div class="kpi-val" id="kpiObras">0</div></div>
             <div class="kpi-box"><div>Plantas Monitoradas</div><div class="kpi-val" id="kpiPlantas">0</div></div>
             <div class="kpi-box"><div>Ativos Cadastrados</div><div class="kpi-val" id="kpiAtivos">0</div></div>
-            <div class="kpi-box restrict-management-only"><div>Alertas de RH</div><div class="kpi-val" id="kpiAlertasRH" style="color:#ef4444;">0</div></div>
+            <div class="kpi-box"><div>Alertas de RH</div><div class="kpi-val" id="kpiAlertasRH" style="color:#ef4444;">0</div></div>
         </div>
         <div class="dashboard-grid">
             <div class="card"><h3>📊 Progresso das Obras (%)</h3><div style="height:220px;"><canvas id="chartGeralObras"></canvas></div></div>
@@ -246,7 +270,7 @@
         </div>
     </div>
 
-    <div id="tab-pessoas" class="tab-content">
+    <div id="tab-pessoas" class="tab-content restrict-management-only">
         <div class="search-bar-container"><input type="text" class="search-input" id="searchPessoas" placeholder="🔍 Buscar colaborador..." oninput="renderizarPessoas()"></div>
         <div class="card operar-only">
             <h3>👥 Cadastrar Novo Colaborador</h3>
@@ -263,40 +287,99 @@
 <script>
     const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbzmszE3sVm0Qa1U2G4_8O2cidaQOooTWOYBWnlkLmBG5Mn3i8nmHdvymuzpoEYouFl6YA/exec";
     let obras = [], clientesMaint = [], colaboradores = [], listaGraficosClientes = {};
+    let usuarios = []; // Banco de dados local/cache dos usuários criados
     let chartG1 = null, chartG2 = null, isSincronizando = false, usuarioAtualPermissoes = "ver", houveAlteracao = false;
 
     const divConfig = [{ nome: 'Cabeamento', peso: 0.18 }, { nome: 'Conectorização', peso: 0.18 }, { nome: 'Comissionamento', peso: 0.18 }, { nome: 'Lógica (DDC)', peso: 0.18 }, { nome: 'Supervisório', peso: 0.18 }, { nome: 'Documentação', peso: 0.10 }];
 
     function gerarUUID() { return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); }
 
+    // Carrega a lista de usuários fictícios do localStorage ou cria padrões
+    function carregarUsuariosDoSistema() {
+        const salvos = localStorage.getItem("db_usuarios");
+        if (salvos) {
+            usuarios = JSON.parse(salvos);
+        } else {
+            usuarios = [
+                { user: "admin", pass: "admin123", perm: "admin" },
+                { user: "gerente", pass: "gerente123", perm: "gerente" },
+                { user: "pcm", pass: "pcm123", perm: "ver,operar" },
+                { user: "tecnico", pass: "tecnico123", perm: "ver" }
+            ];
+            salvarUsuariosDoSistema();
+        }
+    }
+
+    function salvarUsuariosDoSistema() {
+        localStorage.setItem("db_usuarios", JSON.stringify(usuarios));
+    }
+
     async function checarLogin() {
         const u = document.getElementById("userInput").value.trim(), p = document.getElementById("passInput").value.trim(), btn = document.getElementById("btnLoginAction");
         if (!u || !p) return alert("Preencha todos os campos.");
         btn.disabled = true; btn.innerText = "Autenticando...";
-        try {
-            let r = await fetch(URL_GOOGLE_API + "?usuario=" + encodeURIComponent(u) + "&senha=" + encodeURIComponent(p));
-            let res = await r.json();
-            if (res.status === "sucesso") {
-                usuarioAtualPermissoes = res.perm;
-                document.getElementById("tela-login").style.display = "none";
-                
-                // Regras de permissões para exibir elementos dinamicamente na tela
-                const possuiOperacao = usuarioAtualPermissoes.includes("operar") || usuarioAtualPermissoes === "master" || usuarioAtualPermissoes === "gerente" || usuarioAtualPermissoes === "admin";
-                const possuiAdmin = usuarioAtualPermissoes.includes("admin") || usuarioAtualPermissoes === "master";
-                const possuiGestaoPessoas = usuarioAtualPermissoes === "gerente" || usuarioAtualPermissoes === "admin" || usuarioAtualPermissoes === "master";
+        
+        carregarUsuariosDoSistema();
+        
+        // Simulação/Busca no banco local de usuários
+        const contaLocal = usuarios.find(userObj => userObj.user === u && userObj.pass === p);
+        
+        if (contaLocal) {
+            usuarioAtualPermissoes = contaLocal.perm;
+            autenticarUsuarioPainel();
+        } else {
+            // Tentativa de autenticação na API do Google
+            try {
+                let r = await fetch(URL_GOOGLE_API + "?usuario=" + encodeURIComponent(u) + "&senha=" + encodeURIComponent(p));
+                let res = await r.json();
+                if (res.status === "sucesso") {
+                    usuarioAtualPermissoes = res.perm;
+                    autenticarUsuarioPainel();
+                } else { alert("⚠️ " + res.mensagem); btn.disabled = false; btn.innerText = "Entrar"; }
+            } catch (e) { alert("❌ Usuário não encontrado localmente ou falha de rede."); btn.disabled = false; btn.innerText = "Entrar"; }
+        }
+    }
 
-                if (possuiOperacao) document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
-                if (possuiAdmin) document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
-                if (possuiGestaoPessoas) document.querySelectorAll(".restrict-management-only").forEach(el => el.style.display = "block");
-                
-                await inicializarApp();
-            } else { alert("⚠️ " + res.mensagem); btn.disabled = false; btn.innerText = "Entrar"; }
-        } catch (e) { alert("❌ Falha de rede."); btn.disabled = false; }
+    function autenticarUsuarioPainel() {
+        document.getElementById("tela-login").style.display = "none";
+        
+        // Oculta tudo por padrão antes de exibir condicionalmente
+        document.querySelectorAll(".operar-only, .admin-only, .restrict-management-only, .admin-gerente-only").forEach(el => el.style.display = "none");
+
+        const possuiOperacao = usuarioAtualPermissoes.includes("operar") || usuarioAtualPermissoes === "master" || usuarioAtualPermissoes === "gerente" || usuarioAtualPermissoes === "admin";
+        const possuiAdmin = usuarioAtualPermissoes === "master" || usuarioAtualPermissoes === "admin";
+        const possuiAdminGerente = usuarioAtualPermissoes === "master" || usuarioAtualPermissoes === "admin" || usuarioAtualPermissoes === "gerente";
+
+        if (possuiOperacao) document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
+        if (possuiAdmin) document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
+        if (possuiAdminGerente) document.querySelectorAll(".admin-gerente-only").forEach(el => el.style.display = "block");
+
+        // Regra de Redirecionamento e visualização de Abas
+        if (possuiAdminGerente) {
+            document.querySelectorAll(".restrict-management-only").forEach(el => el.style.display = "block");
+            // Abre o dashboard padrão
+            alternarAba('dashboard', document.getElementById("tabBtnDashboard"));
+        } else {
+            // Nível "Ver" ou "Ver e Operar" - Não visualiza Dashboard nem Pessoas. Vai direto para obras.
+            document.querySelectorAll(".restrict-management-only").forEach(el => el.style.display = "none");
+            alternarAba('obras', document.getElementById("tabBtnObras"));
+        }
+        
+        inicializarApp();
+    }
+
+    function logoff() {
+        document.getElementById("userInput").value = "";
+        document.getElementById("passInput").value = "";
+        document.getElementById("tela-login").style.display = "flex";
+        document.getElementById("btnLoginAction").disabled = false;
+        document.getElementById("btnLoginAction").innerText = "Entrar no Sistema";
     }
 
     async function inicializarApp() {
         localStorage.removeItem("cache_obras"); localStorage.removeItem("cache_clientes"); localStorage.removeItem("cache_colaboradores");
         await carregarDadosDaNuvem();
+        renderizarUsuarios();
         renderizarDashboardGeral();
         setInterval(async () => { await salvarEAtualizarPelaPlanilhaSilencioso(); }, 30000);
     }
@@ -337,6 +420,75 @@
     async function salvarEAtualizarPelaPlanilha() { houveAlteracao = true; await transmitirDadosParaNuvem(false); alert("Sincronizado!"); renderizarDashboardGeral(); }
     async function salvarEAtualizarPelaPlanilhaSilencioso() { await transmitirDadosParaNuvem(true); }
 
+    // GERENCIAMENTO DE USUÁRIOS
+    function renderizarUsuarios() {
+        const corpo = document.getElementById("corpoTabelaUsuarios");
+        if (!corpo) return;
+        corpo.innerHTML = "";
+        usuarios.forEach((usr, index) => {
+            let row = document.createElement("tr");
+            row.innerHTML = `
+                <td><strong>${usr.user}</strong></td>
+                <td><span style="color: #38bdf8; text-transform: uppercase; font-size:12px;">${usr.perm}</span></td>
+                <td>
+                    <button onclick="editarUsuario('${usr.user}')" style="background: #2563eb; color: white;">✏️ Editar</button>
+                    <button onclick="deletarUsuario('${usr.user}')" style="background: #dc2626; color: white;">❌ Remover</button>
+                </td>
+            `;
+            corpo.appendChild(row);
+        });
+    }
+
+    function criarNovoUsuario() {
+        const user = document.getElementById("newUsername").value.trim();
+        const pass = document.getElementById("newPassword").value.trim();
+        const perm = document.getElementById("newUserPerm").value;
+
+        if (!user || !pass) return alert("Defina o nome do usuário e a senha.");
+        if (usuarios.find(u => u.user === user)) return alert("Este nome de usuário já existe!");
+
+        usuarios.push({ user, pass, perm });
+        salvarUsuariosDoSistema();
+        renderizarUsuarios();
+
+        document.getElementById("newUsername").value = "";
+        document.getElementById("newPassword").value = "";
+        alert(`Usuário ${user} cadastrado com sucesso!`);
+    }
+
+    function editarUsuario(username) {
+        const userObj = usuarios.find(u => u.user === username);
+        if (!userObj) return;
+
+        const novaSenha = prompt(`Digite a nova senha para o usuário ${username}:`, userObj.pass);
+        if (novaSenha === null) return;
+        if (!novaSenha.trim()) return alert("A senha não pode ser vazia.");
+
+        const novaPermissao = prompt(`Digite o novo nível de acesso de ${username} (Opções: ver | ver,operar | gerente | admin):`, userObj.perm);
+        if (novaPermissao === null) return;
+        
+        const validas = ["ver", "ver,operar", "gerente", "admin"];
+        if (!validas.includes(novaPermissao.trim())) {
+            return alert("Nível de acesso inválido! Escolha uma das opções informadas.");
+        }
+
+        userObj.pass = novaSenha.trim();
+        userObj.perm = novaPermissao.trim();
+        salvarUsuariosDoSistema();
+        renderizarUsuarios();
+        alert(`Usuário ${username} atualizado com sucesso!`);
+    }
+
+    function deletarUsuario(username) {
+        if (username === "admin") return alert("Não é permitido excluir o administrador principal (admin).");
+        if (confirm(`Deseja mesmo excluir a conta do usuário "${username}" permanentemente?`)) {
+            usuarios = usuarios.filter(u => u.user !== username);
+            salvarUsuariosDoSistema();
+            renderizarUsuarios();
+        }
+    }
+
+    // DASHBOARD Consolidado
     function renderizarDashboardGeral() {
         document.getElementById("kpiObras").innerText = obras.length;
         document.getElementById("kpiPlantas").innerText = clientesMaint.length;
@@ -368,7 +520,6 @@
 
         document.getElementById("kpiAtivos").innerText = totalAtivos;
         
-        // Proteção contra manipulação se o elemento estiver ocultado pelo CSS
         const kpiRhElement = document.getElementById("kpiAlertasRH");
         if(kpiRhElement) kpiRhElement.innerText = alertasRH;
 
@@ -607,7 +758,7 @@
         const termo = document.getElementById("searchObras").value.toLowerCase().trim();
         const filtradas = obras.filter(o => o.nome.toLowerCase().includes(termo));
         
-        const isAdmin = usuarioAtualPermissoes === "master" || usuarioAtualPermissoes.includes("admin");
+        const isAdminGerente = usuarioAtualPermissoes === "master" || usuarioAtualPermissoes === "admin" || usuarioAtualPermissoes === "gerente";
 
         filtradas.forEach(o => {
             const glob = calcularTotalObra(o); const div = document.createElement('div'); div.className = 'obra-item'; let htmlM = '';
@@ -640,7 +791,7 @@
                 htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(eqpsTotais)}%</span></div></div><div>${htmlA || '<p style="font-size:12px; color:#64748b;">Nenhum Andar/Setor alocado.</p>'}</div>${formAddAndarHTML}</div>`;
             });
 
-            let btnDeleteObra = isAdmin ? `<button class="btn-danger" style="padding: 4px 10px; font-size: 12px; font-weight: bold; margin-left: 15px;" onclick="deletarObra('${o.id}')">❌ Excluir Obra</button>` : '';
+            let btnDeleteObra = isAdminGerente ? `<button class="btn-danger" style="padding: 4px 10px; font-size: 12px; font-weight: bold; margin-left: 15px;" onclick="deletarObra('${o.id}')">❌ Excluir Obra</button>` : '';
 
             let blocoNotasHTML = `
             <div class="card" onclick="event.stopPropagation()" style="background: #1e293b; border: 1px solid #334155; margin-top: 20px;">
@@ -654,6 +805,17 @@
     }
 
     function criarClienteManutencao() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('maintClienteNome'), peri = document.getElementById('maintPeriodicidade').value, data = document.getElementById('maintDataInicio').value; if (!input.value.trim() || !data) return; clientesMaint.push({ id: gerarUUID(), nome: input.value.trim(), periodicidade: peri, dataInicio: data, sistemas: {} }); input.value = ''; houveAlteracao = true; renderizarMaint(); }
+    
+    function deletarClienteManutencao(cliId) {
+        if(window.event) window.event.stopPropagation();
+        if(confirm("Deseja realmente excluir permanentemente este Contrato/Cliente de manutenção do sistema? Todos os ativos vinculados serão excluídos.")) {
+            clientesMaint = clientesMaint.filter(c => c.id !== cliId);
+            houveAlteracao = true;
+            renderizarMaint();
+            renderizarDashboardGeral();
+        }
+    }
+
     function adicionarSistema(cliId) { if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById(`addSys-${cliId}`), sysNome = input.value.trim(); if (!sysNome) return; const cli = clientesMaint.find(c => c.id == cliId); if (cli && !cli.sistemas[sysNome]) { cli.sistemas[sysNome] = []; houveAlteracao = true; renderizarMaint(); } }
 
     function adicionarEquipamento(cliId, sysNome) {
@@ -663,7 +825,7 @@
         const andar = inputAndar ? inputAndar.value.trim() : "", tipo = inputTipo ? inputTipo.value : "Preventiva";
 
         if(txtLote && txtLote.value.trim()) {
-            txtLote.value.split('\n').forEach((linha, idx) => { if(linha.trim()) cli.sistemas[sysNome].push({ id: gerarUUID(), nome: linha.trim(), tag: (inputTag.value || 'TAG') + '-' + (idx+1), status: 'Pendente', tipo: tipo, andar: andar, data: new Date().toISOString().split('T')[0], obs: '', logs: [] }); });
+            txtLote.value.split('\n').forEach((linha, idx) => { if(linha.trim()) cli.sistemas[sysNome].push({ id: gerarUUID(), nome: inline.trim(), tag: (inputTag.value || 'TAG') + '-' + (idx+1), status: 'Pendente', tipo: tipo, andar: andar, data: new Date().toISOString().split('T')[0], obs: '', logs: [] }); });
             txtLote.value = '';
         } else if(inputNome && inputNome.value.trim()) {
             cli.sistemas[sysNome].push({ id: gerarUUID(), nome: inputNome.value.trim(), tag: inputTag.value.trim() || 'S/T', status: 'Pendente', tipo: tipo, andar: andar, data: new Date().toISOString().split('T')[0], obs: '', logs: [] });
@@ -675,6 +837,9 @@
     function renderizarMaint() {
         const container = document.getElementById('listaClientesManutencao'); container.innerHTML = '';
         const termo = document.getElementById("searchMaint").value.toLowerCase().trim();
+        
+        const isAdminGerente = usuarioAtualPermissoes === "master" || usuarioAtualPermissoes === "admin" || usuarioAtualPermissoes === "gerente";
+
         clientesMaint.forEach(cli => {
             let matchC = cli.nome.toLowerCase().includes(termo);
             const divCli = document.createElement('div'); divCli.className = 'client-card'; let htmlSistemas = '';
@@ -728,8 +893,12 @@
                 });
             }
             if(!matchC && htmlSistemas === '') return;
+            
             let formAddSys = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" onclick="event.stopPropagation()"><input type="text" id="addSys-${cli.id}" placeholder="Nome do sistema"><button onclick="adicionarSistema('${cli.id}')">+ Alocar Sistema</button></div>`;
-            divCli.innerHTML = `<div class="client-header" onclick="document.getElementById('cliCorpo-${cli.id}').classList.toggle('active')"><div class="client-title">🏢 Planta: ${cli.nome}</div></div><div class="client-body" id="cliCorpo-${cli.id}">${formAddSys}${htmlSistemas}</div>`;
+            
+            let btnDeleteCliente = isAdminGerente ? `<button class="btn-danger" style="padding: 4px 10px; font-size: 11px; font-weight: bold;" onclick="deletarClienteManutencao('${cli.id}')">❌ Excluir Contrato</button>` : '';
+
+            divCli.innerHTML = `<div class="client-header" onclick="document.getElementById('cliCorpo-${cli.id}').classList.toggle('active')"><div class="client-title"><span>🏢 Planta: ${cli.nome}</span>${btnDeleteCliente}</div></div><div class="client-body" id="cliCorpo-${cli.id}">${formAddSys}${htmlSistemas}</div>`;
             container.appendChild(divCli);
         });
     }
