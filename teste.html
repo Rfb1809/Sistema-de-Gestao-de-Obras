@@ -33,14 +33,14 @@
         .search-bar-container { margin-bottom: 15px; }
         .search-input { width: 100%; padding: 10px 15px; background-color: #1e293b; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
 
-        /* Menu de abas principal deslizável */
+        /* Menu de abas principal deslizável em mobile */
         .tab-menu { display: flex; justify-content: flex-start; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 15px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .tab-menu::-webkit-scrollbar { height: 4px; }
         .tab-menu::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
         .tab-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; white-space: nowrap; font-size: 13px; }
         .tab-btn.active { background: #0284c7; color: white; border-color: #38bdf8; }
         
-        /* Menu de sub-abas (interno) para "Minhas Informações" */
+        /* Menu de sub-abas internas deslizável */
         .sub-tab-menu { display: flex; justify-content: flex-start; gap: 8px; margin-bottom: 20px; background: #0f172a; padding: 6px; border-radius: 8px; border: 1px solid #334155; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .sub-tab-btn { background: transparent; border: none; color: #94a3b8; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
         .sub-tab-btn.active { background: #334155; color: #38bdf8; }
@@ -112,6 +112,11 @@
         .sub-form button { padding: 8px 12px; font-size: 12px; background-color: #4b5563; color: #f3f4f6; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }
         @media(min-width: 480px) { .sub-form button { width: auto; } }
         
+        .nota-feed { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; max-height: 250px; overflow-y: auto; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
+        .nota-item { background: #1e293b; border-left: 4px solid #38bdf8; padding: 8px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: flex-start; }
+        .nota-meta { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+        .btn-del-msg { background: none; border: none; color: #f87171; cursor: pointer; font-size: 14px; }
+
         .people-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-bottom: 15px; padding: 12px; position: relative; }
         .people-header-clickable { display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; user-select: none; width: 100%; gap: 10px; }
         @media(min-width: 480px) { .people-header-clickable { flex-direction: row; align-items: center; } }
@@ -179,7 +184,6 @@
         </div>
     </header>
 
-    <!-- Barra de Navegação Padrão -->
     <div class="tab-menu">
         <button class="tab-btn active" id="tabBtnDashboard" onclick="alternarAba('dashboard', this);">📊 Dashboard Geral</button>
         <button class="tab-btn" id="tabBtnObras" onclick="alternarAba('obras', this);">📁 Obras em Andamento</button>
@@ -189,7 +193,6 @@
         <button class="tab-btn" id="tabBtnUsuarios" onclick="alternarAba('usuarios', this);">🔑 Gerenciar Usuários</button>
     </div>
 
-    <!-- ABA: DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
         <div class="kpi-container">
             <div class="kpi-box"><div>Projetos/Obras</div><div class="kpi-val" id="kpiObras">0</div></div>
@@ -203,7 +206,6 @@
         </div>
     </div>
 
-    <!-- ABA: OBRAS -->
     <div id="tab-obras" class="tab-content">
         <div class="search-bar-container"><input type="text" class="search-input" id="searchObras" placeholder="🔍 Buscar por nome da obra..." oninput="renderizarObras()"></div>
         <div class="card operar-only">
@@ -213,7 +215,6 @@
         <div id="listaObras"></div>
     </div>
 
-    <!-- ABA: MANUTENÇÃO -->
     <div id="tab-manutencao" class="tab-content">
         <div id="sub-inventario" class="sub-tab-content" style="display: block;">
             <div class="search-bar-container"><input type="text" class="search-input" id="searchMaint" placeholder="🔍 Buscar por planta, sistema ou TAG..." oninput="renderizarMaint()"></div>
@@ -233,7 +234,6 @@
         </div>
     </div>
 
-    <!-- ABA: GESTÃO DE PESSOAS -->
     <div id="tab-pessoas" class="tab-content">
         <div class="search-bar-container"><input type="text" class="search-input" id="searchPessoas" placeholder="🔍 Buscar colaborador..." oninput="renderizarPessoas()"></div>
         <div class="card operar-only">
@@ -247,16 +247,13 @@
         <div id="containerListaPessoas"></div>
     </div>
 
-    <!-- ABA: MINHAS INFORMAÇÕES (Agrupa Agenda, Reembolso e Folha de Ponto) -->
     <div id="tab-minhas-info" class="tab-content">
-        <!-- Sub-Menu de navegação interna -->
         <div class="sub-tab-menu">
             <button class="sub-tab-btn active" id="subTabBtnAgenda" onclick="alternarSubAba('agenda', this)">📅 Minha Agenda</button>
             <button class="sub-tab-btn" id="subTabBtnReembolso" onclick="alternarSubAba('reembolso', this)">💵 Solicitar Reembolso</button>
             <button class="sub-tab-btn" id="subTabBtnPonto" onclick="alternarSubAba('ponto', this)">📝 Folha de Ponto</button>
         </div>
 
-        <!-- SUB-ABA: AGENDA -->
         <div id="subtab-agenda" class="sub-tab-content active">
             <div class="card">
                 <h3>📅 Agenda Pessoal de Atividades</h3>
@@ -289,7 +286,6 @@
             </div>
         </div>
 
-        <!-- SUB-ABA: REEMBOLSO -->
         <div id="subtab-reembolso" class="sub-tab-content">
             <div class="card">
                 <h3>💵 Solicitação de Reembolso de Despesas</h3>
@@ -312,15 +308,15 @@
                 <div class="form-row">
                     <div class="form-group">
                         <label>Banco</label>
-                        <input type="text" id="reembolsoBanco" placeholder="Ex: Banco do Brasil">
+                        <input type="text" id="reembolsoBanco" placeholder="Digite o nome do banco">
                     </div>
                     <div class="form-group">
                         <label>Agência</label>
-                        <input type="text" id="reembolsoAgencia" placeholder="Ex: 0001">
+                        <input type="text" id="reembolsoAgencia" placeholder="Digite a agência">
                     </div>
                     <div class="form-group">
                         <label>Conta</label>
-                        <input type="text" id="reembolsoConta" placeholder="Ex: 12345-6">
+                        <input type="text" id="reembolsoConta" placeholder="Digite o número da conta">
                     </div>
                     <div class="form-group">
                         <label>Chave PIX (Opcional)</label>
@@ -336,18 +332,17 @@
                     </div>
                     <div class="form-group" style="flex: 1;">
                         <label>Valor da Despesa (R$)</label>
-                        <input type="number" step="0.01" id="reembolsoValor" placeholder="Deixe vago ou preencha o valor">
+                        <input type="number" step="0.01" id="reembolsoValor" placeholder="Digite o valor">
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Justificativa / Observações</label>
-                    <textarea id="reembolsoObs" rows="3" placeholder="Insira detalhes adicionais sobre a despesa caso necessário"></textarea>
+                    <label>Justificativa / Observações (Adiantamento / Despesas extras)</label>
+                    <textarea id="reembolsoObs" rows="3" placeholder="Insira detalhes adicionais sobre o adiantamento ou despesas caso necessário"></textarea>
                 </div>
                 <button onclick="window.print()" style="background:#16a34a; color:white; padding:12px 20px; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; width: 100%;">🖨️ Gerar PDF / Imprimir Reembolso</button>
             </div>
         </div>
 
-        <!-- SUB-ABA: FOLHA DE PONTO -->
         <div id="subtab-ponto" class="sub-tab-content">
             <div class="card">
                 <h3>📝 Registro de Ponto Digital</h3>
@@ -384,7 +379,6 @@
         </div>
     </div>
 
-    <!-- ABA: CONFIGURAÇÃO DE USUÁRIOS -->
     <div id="tab-usuarios" class="tab-content">
         <div class="card">
             <h3>🔑 Gerenciador de Usuários do Sistema</h3>
@@ -445,6 +439,7 @@
     function autenticarUsuarioPainel() {
         document.getElementById("tela-login").style.display = "none";
         
+        // Oculta abas administrativas por padrão
         document.getElementById("tabBtnDashboard").style.display = "none";
         document.getElementById("tabBtnPessoas").style.display = "none";
         document.getElementById("tabBtnUsuarios").style.display = "none";
@@ -472,12 +467,14 @@
         usuarioLogadoNome = ""; usuarioAtualPermissoes = "ver";
         document.getElementById("userInput").value = ""; document.getElementById("passInput").value = "";
         
+        // CORREÇÃO: Reseta todos os dados para evitar que fiquem cacheados e dupliquem no próximo login
         obras = []; clientesMaint = []; colaboradores = []; usuarios = [];
         
+        // Limpa visualmente as estruturas de visualização
         const listaObras = document.getElementById('listaObras'); if (listaObras) listaObras.innerHTML = '';
         const listaMaint = document.getElementById('listaClientesManutencao'); if (listaMaint) listaMaint.innerHTML = '';
-        const listaPessoas = document.getElementById('containerListaPessoas'); if (listaPessoas) listaPessoas.innerHTML = '';
-        const tabelaUsuarios = document.getElementById('corpoTabelaUsuarios'); if (tabelaUsuarios) tabelaUsuarios.innerHTML = '';
+        const containerPessoas = document.getElementById('containerListaPessoas'); if (containerPessoas) containerPessoas.innerHTML = '';
+        const corpoUsuarios = document.getElementById('corpoTabelaUsuarios'); if (corpoUsuarios) corpoUsuarios.innerHTML = '';
 
         document.getElementById("tela-login").style.display = "flex";
         document.getElementById("btnLoginAction").disabled = false; document.getElementById("btnLoginAction").innerText = "Entrar";
@@ -798,7 +795,7 @@
         if(aba === 'usuarios') renderizarUsuarios();
     }
 
-    // Função de alternância das sub-abas internas de "Minhas Informações"
+    // Gerenciador de alternância das sub-abas internas de "Minhas Informações"
     function alternarSubAba(subAba, btn) {
         document.querySelectorAll('#tab-minhas-info .sub-tab-content').forEach(content => content.classList.remove('active'));
         document.querySelectorAll('#tab-minhas-info .sub-tab-btn').forEach(b => b.classList.remove('active'));
