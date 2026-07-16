@@ -1,11 +1,30 @@
+Para integrar o sistema de reembolsos, folha de ponto e agenda (do arquivo `REEEMBOLSO.txt`) diretamente dentro da sua aplicação principal de gestão de obras (do arquivo `GESTAO DE OBRAS_16_07_26.txt`), precisamos realizar as seguintes modificações estruturais no código:
+
+1. **Criar a aba "Área do Usuário"**: Adicionar um novo botão de aba chamado "👤 Minha Área" no menu superior. Ele ficará visível para quem tem permissão de ver e operar (`ver`, `operar` ou superiores).
+
+
+2. 
+**Vincular dinamicamente o nome do usuário logado**: O campo "Colaborador" no formulário de reembolso e folha de ponto deixará de ser um valor estático (como "Rafael Ferreira Barros") e passará a carregar automaticamente o nome do usuário que acabou de fazer login (`usuarioLogadoNome`).
+
+
+3. 
+**Fundir as folhas de estilo (CSS) e dependências de Script**: Adicionar a biblioteca `html2pdf.js`  e os estilos específicos da aba de reembolso no cabeçalho do arquivo principal de obras, evitando conflitos visuais.
+
+
+4. **Fundir as funções lógicas**: Integrar a renderização do ponto, reembolso e agenda à navegação nativa da plataforma de obras.
+
+Aqui está o código completo unificado e pronto para uso:
+
+```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plataforma de Engenharia Predial &amp; PCM Inteligente</title>
+    <title>Plataforma de Engenharia Predial & PCM Inteligente</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background-color: #121824; color: #f8fafc; padding: 15px; }
@@ -28,10 +47,6 @@
         .btn-save-cloud { background-color: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
         .btn-print { background-color: #eab308; color: #0f172a; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
         .btn-logoff { background-color: #e11d48; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
-        
-        /* Botão de Reembolso */
-        .btn-reembolso { background-color: #8b5cf6; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
-        .btn-reembolso:hover { background-color: #7c3aed; }
 
         .search-bar-container { margin-bottom: 15px; }
         .search-input { width: 100%; padding: 10px 15px; background-color: #1e293b; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
@@ -51,8 +66,10 @@
         h3 { font-size: 18px; margin-bottom: 15px; color: #f1f5f9; border-bottom: 2px solid #334155; padding-bottom: 6px; }
 
         .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 15px; }
-        label { font-size: 14px; font-weight: 600; color: #cbd5e1; }
-        input[type="text"], input[type="password"], input[type="date"], select, textarea { padding: 10px; font-size: 15px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 8px; width: 100%; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+        input[type="text"], input[type="password"], input[type="date"], input[type="number"], input[type="time"], select, textarea { padding: 10px; font-size: 15px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 8px; width: 100%; outline: none; transition: border-color 0.2s; }
+        input:focus, select:focus, textarea:focus { border-color: #38bdf8; }
         
         .maint-layout { display: grid; grid-template-columns: 1fr; gap: 20px; }
         @media(min-width: 768px) { .maint-layout { grid-template-columns: 1fr 2fr; } }
@@ -88,9 +105,34 @@
         .user-table th { background: #0f172a; color: #38bdf8; }
         .user-table td button { padding: 5px 10px; font-size: 12px; margin-right: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
-        .agenda-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-        .agenda-table th, .agenda-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
-        .agenda-table th { background: #0f172a; color: #38bdf8; font-weight: bold; }
+        /* Estilos de Tabelas Dinâmicas unificados */
+        .dinamic-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; color: #f8fafc; }
+        .dinamic-table th, .dinamic-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
+        .dinamic-table th { background: #0f172a; color: #94a3b8; font-weight: bold; }
+        .dinamic-table tr:hover { background: rgba(255,255,255,0.02); }
+
+        /* Estilo especial para finais de semana e feriados no Ponto */
+        .dinamic-table tr.weekend-row { background-color: rgba(244, 63, 94, 0.15) !important; color: #fda4af !important; }
+        .dinamic-table tr.weekend-row input { color: #fda4af !important; border-color: rgba(244, 63, 94, 0.3); }
+
+        /* Balanço de Caixa */
+        .balanco-box { background: #0f172a; border-radius: 6px; border: 1px solid #334155; padding: 15px; margin-top: 15px; }
+        .balanco-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .balanco-row.total { font-size: 18px; font-weight: bold; border-top: 1px dashed #334155; padding-top: 10px; color: #10b981; }
+
+        .btn-success { background-color: #10b981; color: #fff; }
+        .btn-danger { background-color: #f43f5e; color: #fff; padding: 6px 10px; width: auto; font-size: 11px; }
+        .btn-action { width: auto; padding: 6px 12px; font-size: 12px; }
+
+        .preview-img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #334155; cursor: pointer; }
+
+        /* Agenda diária / Tarefas */
+        .todo-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #334155; background: #0f172a; margin-bottom: 8px; border-radius: 6px; border-left: 4px solid #94a3b8; }
+        .todo-item.executado { border-left-color: #10b981; text-decoration: line-through; opacity: 0.7; }
+        .todo-item.pendente { border-left-color: #f59e0b; }
+        .todo-item-info h4 { font-size: 14px; color: #f8fafc; }
+        .todo-item-info p { font-size: 12px; color: #94a3b8; }
+        .todo-actions { display: flex; gap: 8px; }
 
         .client-chart-container { background: #0f172a; border-radius: 8px; padding: 10px; margin-top: 15px; border: 1px solid #334155; height: 160px; position: relative; }
 
@@ -125,7 +167,7 @@
         .people-vacation-content { display: none; margin-top: 15px; border-top: 1px dashed #334155; padding-top: 10px; }
         .people-vacation-content.active { display: block; }
         .vacation-period-box { background: #111827; padding: 10px; border-radius: 6px; margin-top: 6px; border: 1px solid #1e293b; display: grid; grid-template-columns: 1fr; gap: 10px; align-items: center; font-size: 13px; }
-        @media(min-width: 768px) { .vacation-period-box { grid-template-columns: 2fr 1.5fr 1.5fr 1.2Integrado; } }
+        @media(min-width: 768px) { .vacation-period-box { grid-template-columns: 2fr 1.5fr 1.5fr 1.2fr; } }
 
         .dashboard-grid { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; }
         @media(min-width: 768px) { .dashboard-grid { grid-template-columns: 1fr 1fr; } }
@@ -135,6 +177,13 @@
         .kpi-val { font-size: 24px; font-weight: bold; color: #38bdf8; margin-top: 5px; }
 
         .admin-only, .operar-only { display: none; }
+
+        /* Estilo para menu interno da aba Usuário */
+        .inner-tab-menu { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .inner-tab-btn { background: #111827; border: 1px solid #334155; color: #94a3b8; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; }
+        .inner-tab-btn.active { background: #38bdf8; color: #0f172a; }
+        .inner-tab-content { display: none; }
+        .inner-tab-content.active { display: block; }
 
         @media print {
             body { background-color: #fff; color: #000; padding: 0; }
@@ -167,7 +216,7 @@
 <div class="container">
     <header>
         <h1>Plataforma de Engenharia Predial</h1>
-        <p>Conexão Sincronizada Direta com o Google Apps Script &amp; Drive</p>
+        <p>Conexão Sincronizada Direta com o Google Apps Script & Drive</p>
         <div id="loadingBanner" class="loading-banner"></div>
         
         <div class="actions-bar">
@@ -175,23 +224,20 @@
             <button class="btn-import-master admin-only" onclick="document.getElementById('inputImportExcel').click()">📂 Importar Planilha Local</button>
             <input type="file" id="inputImportExcel" accept=".xlsx, .xls" style="display: none;" onchange="importarBancoDeExcel(this)">
             <button id="btnCloudSync" class="btn-save-cloud operar-only" onclick="salvarEAtualizarPelaPlanilha()">🔄 Salvar e Atualizar via Planilha</button>
-            <!-- BOTÃO: MINHAS INFORMAÇÕES / REEMBOLSO -->
-            <button class="btn-reembolso" onclick="abrirJanelaReembolso()">💳 Minhas Informações / Reembolso</button>
             <button class="btn-print" onclick="window.print()">🖨️ Imprimir Relatório (PDF)</button>
             <button class="btn-logoff" onclick="logoff()">🚪 Sair (Logoff)</button>
         </div>
     </header>
 
-    <!-- Barra de Navegação Padrão -->
     <div class="tab-menu">
         <button class="tab-btn active" id="tabBtnDashboard" onclick="alternarAba('dashboard', this);">📊 Dashboard Geral</button>
         <button class="tab-btn" id="tabBtnObras" onclick="alternarAba('obras', this);">📁 Obras em Andamento</button>
-        <button class="tab-btn" id="tabBtnManutencao" onclick="alternarAba('manutencao', this);">🔧 Planta de Manutenção &amp; PCM</button>
+        <button class="tab-btn" id="tabBtnManutencao" onclick="alternarAba('manutencao', this);">🔧 Planta de Manutenção & PCM</button>
+        <button class="tab-btn" id="tabBtnMinhaArea" onclick="alternarAba('minha-area', this); carregarDadosUsuarioLogado();">👤 Minha Área</button>
         <button class="tab-btn" id="tabBtnPessoas" onclick="alternarAba('pessoas', this);">👥 Gestão de Pessoas</button>
         <button class="tab-btn" id="tabBtnUsuarios" onclick="alternarAba('usuarios', this);">🔑 Gerenciar Usuários</button>
     </div>
 
-    <!-- ABA: DASHBOARD -->
     <div id="tab-dashboard" class="tab-content active">
         <div class="kpi-container">
             <div class="kpi-box"><div>Projetos/Obras</div><div class="kpi-val" id="kpiObras">0</div></div>
@@ -205,7 +251,6 @@
         </div>
     </div>
 
-    <!-- ABA: OBRAS -->
     <div id="tab-obras" class="tab-content">
         <div class="search-bar-container"><input type="text" class="search-input" id="searchObras" placeholder="🔍 Buscar por nome da obra..." oninput="renderizarObras()"></div>
         <div class="card operar-only">
@@ -215,7 +260,6 @@
         <div id="listaObras"></div>
     </div>
 
-    <!-- ABA: MANUTENÇÃO -->
     <div id="tab-manutencao" class="tab-content">
         <div id="sub-inventario" class="sub-tab-content" style="display: block;">
             <div class="search-bar-container"><input type="text" class="search-input" id="searchMaint" placeholder="🔍 Buscar por planta, sistema ou TAG..." oninput="renderizarMaint()"></div>
@@ -235,7 +279,208 @@
         </div>
     </div>
 
-    <!-- ABA: GESTÃO DE PESSOAS -->
+    <div id="tab-minha-area" class="tab-content">
+        <div class="card">
+            <h3 style="color: #38bdf8;">👤 Área do Colaborador: <span id="colaboradorTitulo" style="color: #fff;"></span></h3>
+            
+            <div class="inner-tab-menu">
+                <button class="inner-tab-btn active" id="innerTabBtnReembolso" onclick="alternarSubAbaUsuario('sub-reembolso', this)">💰 Reembolsos</button>
+                <button class="inner-tab-btn" id="innerTabBtnPonto" onclick="alternarSubAbaUsuario('sub-ponto', this); renderizarFolhaPonto();">📅 Folha de Ponto</button>
+                <button class="inner-tab-btn" id="innerTabBtnAgenda" onclick="alternarSubAbaUsuario('sub-agenda', this); renderizarAgenda();">📓 Minha Agenda</button>
+            </div>
+
+            <div id="sub-reembolso" class="inner-tab-content active">
+                <div class="card" style="background-color: #111827;">
+                    <h2>📋 Identificação e Dados de Controle</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Colaborador</label>
+                            <input type="text" id="colaborador" readonly style="background-color: #1e293b; color: #94a3b8;">
+                        </div>
+                        <div class="form-group">
+                            <label>Obra / Projeto Ativo</label>
+                            <input type="text" id="obra" value="LUPO (ARARAQUARA)">
+                        </div>
+                        <div class="form-group">
+                            <label>Valor Adiantado (R$)</label>
+                            <input type="number" id="adiantamento" value="350.00" step="0.01" oninput="calcularTotais()">
+                        </div>
+                    </div>
+                    
+                    <h2>🏦 Dados para Depósito/Reembolso</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Banco</label>
+                            <input type="text" id="banco" value="Itaú">
+                        </div>
+                        <div class="form-group">
+                            <label>Agência</label>
+                            <input type="text" id="agencia" value="7752">
+                        </div>
+                        <div class="form-group">
+                            <label>Conta Corrente</label>
+                            <input type="text" id="conta" value="07959-5">
+                        </div>
+                        <div class="form-group">
+                            <label>CPF</label>
+                            <input type="text" id="cpf" value="415.863.168-85">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div>
+                        <div class="card" style="background-color: #111827;">
+                            <h2>✍️ Adicionar Novo Lançamento</h2>
+                            <form id="formLancamento" onsubmit="adicionarItem(event)">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Data</label>
+                                        <input type="date" id="notaData" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Categoria de Despesa</label>
+                                        <select id="notaCategoria" required>
+                                            <option value="Refeições/Lanche">Refeições/Lanche</option>
+                                            <option value="Uber">Uber / Táxi</option>
+                                            <option value="Estacionamento/Pedagio">Estacionamento/Pedagio</option>
+                                            <option value="Combustivel/KM">Combustivel/KM</option>
+                                            <option value="Mat p/ Obra">Mat p/ Obra</option>
+                                            <option value="Estadia">Estadia</option>
+                                            <option value="Diversos/Obs">Diversos/Obs</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group" style="grid-column: span 2;">
+                                        <label>Descrição / Detalhamento</label>
+                                        <input type="text" id="notaDescricao" placeholder="Ex: Combustível deslocamento SP x Araraquara" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Valor (R$)</label>
+                                        <input type="number" id="notaValor" step="0.01" placeholder="0.00" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>📸 Anexar Foto do Cupom/Nota</label>
+                                        <input type="file" id="notaArquivo" accept="image/*" onchange="processarFoto(this)">
+                                    </div>
+                                    <div class="form-group" style="justify-content: flex-end;">
+                                        <button type="submit" class="btn-success" style="padding: 12px; font-weight: bold; border-radius: 6px;">Adicionar Lançamento</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="card" style="background-color: #111827;">
+                            <h2>📊 Extrato de Despesas Lançadas (Ordem Cronológica)</h2>
+                            <div style="overflow-x: auto;">
+                                <table class="dinamic-table" id="tabelaDespesas">
+                                    <thead>
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Categoria</th>
+                                            <th>Descrição / Detalhamento</th>
+                                            <th>Anexo</th>
+                                            <th>Valor</th>
+                                            <th style="width: 80px;">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="corpoTabela"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        <div class="card" style="background-color: #111827;">
+                            <h2>💰 Balanço Geral de Caixa</h2>
+                            <div class="balanco-box">
+                                <div class="balanco-row">
+                                    <span>Adiantamento Recebido:</span>
+                                    <span id="balAncAdiantamento">R$ 350,00</span>
+                                </div>
+                                <div class="balanco-row">
+                                    <span>Total de Despesas:</span>
+                                    <span id="balAncDespesas">R$ 0,00</span>
+                                </div>
+                                <div class="balanco-row total" id="balAncContainer">
+                                    <span id="balAncLabel">Saldo a Receber:</span>
+                                    <span id="balAncValor">R$ 0,00</span>
+                                </div>
+                            </div>
+                            <button type="button" style="margin-top: 15px; font-weight: bold;" onclick="exportarRelatorioParaPDF()">🖨️ Exportar Planilha em PDF</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sub-ponto" class="inner-tab-content">
+                <div class="card" style="background-color: #111827;">
+                    <h2>📅 Folha de Ponto Coletiva <span id="periodoFolha" style="color: #38bdf8; font-size: 14px; margin-left: 10px;"></span></h2>
+                    <p style="font-size: 12px; color: #94a3b8; margin-bottom: 20px;">Ciclo mensal de fechamento: Dia 20 do mês anterior ao dia 20 do mês atual. Fins de semana e feriados destacados em vermelho.</p>
+                    
+                    <div style="overflow-x: auto;">
+                        <table class="dinamic-table">
+                            <thead>
+                                <tr>
+                                    <th>Data/Dia</th>
+                                    <th>Entrada 1</th>
+                                    <th>Saída 1 (Almoço)</th>
+                                    <th>Entrada 2 (Retorno)</th>
+                                    <th>Saída 2</th>
+                                    <th>Observações / Justificativas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpoPonto"></tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn-success" style="margin-top: 20px; width: 250px; font-weight: bold;" onclick="salvarFolhaPonto()">💾 Salvar Folha de Ponto</button>
+                </div>
+            </div>
+
+            <div id="sub-agenda" class="inner-tab-content">
+                <div class="dashboard-grid">
+                    <div>
+                        <div class="card" style="background-color: #111827;">
+                            <h2>📝 Nova Atividade / Serviço</h2>
+                            <form id="formAgenda" onsubmit="adicionarTarefa(event)">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Data da Atividade</label>
+                                        <input type="date" id="agendaData" required onchange="renderizarAgenda()">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Título do Serviço</label>
+                                        <input type="text" id="agendaTitulo" placeholder="Ex: Passar cabeamento setor A" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group" style="grid-column: span 2;">
+                                        <label>Detalhamento da Tarefa / Notas</label>
+                                        <textarea id="agendaDescricao" placeholder="Escreva observações adicionais ou notas para o dia..." rows="2"></textarea>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn-success" style="font-weight: bold;">Adicionar à Agenda</button>
+                            </form>
+                        </div>
+
+                        <div class="card" style="background-color: #111827;">
+                            <h2>📋 Serviços Agendados para o Dia <span id="agendaDataSelecionada" style="color:#38bdf8"></span></h2>
+                            <div id="listaTarefas" style="margin-top: 15px;"></div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="background-color: #111827;">
+                        <h2>💡 Resumo Geral da Agenda</h2>
+                        <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;">Use o painel para organizar as atividades na obra diária. Você pode marcar cada tarefa como "Executada" para controle ou removê-las quando necessário.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="tab-pessoas" class="tab-content">
         <div class="search-bar-container"><input type="text" class="search-input" id="searchPessoas" placeholder="🔍 Buscar colaborador..." oninput="renderizarPessoas()"></div>
         <div class="card operar-only">
@@ -249,7 +494,6 @@
         <div id="containerListaPessoas"></div>
     </div>
 
-    <!-- ABA: CONFIGURAÇÃO DE USUÁRIOS -->
     <div id="tab-usuarios" class="tab-content">
         <div class="card">
             <h3>🔑 Gerenciador de Usuários do Sistema</h3>
@@ -287,342 +531,7 @@
     let chartG1 = null, chartG2 = null, isSincronizando = false;
     let usuarioLogadoNome = "", usuarioAtualPermissoes = "ver";
 
-    const divConfig = [{ nome: 'Cabeamento', peso: 0.18 }, { nome: 'Conectorização', peso: 0.18 }, { nome: 'Comissionamento', peso: 0.18 }, { nome: 'Lógica (DDC)', peso: 0.18 }, { nome: 'Supervisório', peso: 0.18 }, { nome: 'Documentação', peso: 0.10 }];
-
-    function gerarUUID() { return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); }
-
-    // RENDERIZA O REEMBOLSO.TXT SEM ERRO DE PARSER NO SCRIPT DO LOGIN
-    function abrirJanelaReembolso() {
-        const novaJanela = window.open("", "_blank");
-        
-        // Estrutura exata do reembolso sem conflitos de script
-        const htmlReembolso = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Integrado — Lupo Araraquara</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
-    <style>
-        :root {
-            --background: #0f172a;
-            --surface: #1e293b;
-            --surface-card: #1f2638;
-            --primary: #38bdf8;
-            --primary-hover: #0284c7;
-            --text: #f8fafc;
-            --text-secondary: #94a3b8;
-            --border: #334155;
-            --success: #10b981;
-            --danger: #f43f5e;
-            --warning: #f59e0b;
-            --input-bg: #0f172a;
-            --weekend-bg: rgba(244, 63, 94, 0.15);
-            --weekend-text: #fda4af;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        body { background-color: var(--background); color: var(--text); padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        
-        header {
-            background: var(--surface); padding: 20px; border-radius: 8px;
-            border: 1px solid var(--border); display: flex; justify-content: space-between;
-            align-items: center; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
-        .logo-area { display: flex; align-items: center; gap: 10px; }
-        .logo-text { font-weight: bold; font-size: 20px; color: var(--primary); }
-        .sys-title { text-align: right; }
-        .sys-title h1 { font-size: 20px; color: var(--primary); }
-        .sys-title p { font-size: 12px; color: var(--text-secondary); }
-
-        .tabs-menu {
-            display: flex; gap: 10px; margin-bottom: 25px;
-            border-bottom: 2px solid var(--border); padding-bottom: 10px;
-        }
-        .tab-button {
-            background: var(--surface); color: var(--text-secondary);
-            border: 1px solid var(--border); padding: 12px 24px;
-            font-size: 14px; font-weight: bold; border-radius: 6px;
-            cursor: pointer; transition: all 0.2s ease;
-        }
-        .tab-button:hover {
-            color: var(--text); background: rgba(56, 189, 248, 0.1);
-        }
-        .tab-button.active {
-            color: #0f172a; background: var(--primary);
-            border-color: var(--primary);
-        }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        .grid { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; }
-        @media (min-width: 992px) { .grid { grid-template-columns: 1fr 350px; } }
-
-        .card {
-            background: var(--surface); padding: 20px; border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 1px solid var(--border);
-            margin-bottom: 20px;
-        }
-        h2 { font-size: 16px; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid var(--border); display: flex; align-items: center; gap: 8px; color: var(--primary); text-transform: uppercase; letter-spacing: 0.5px; }
-
-        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
-        .form-group { display: flex; flex-direction: column; gap: 6px; }
-        label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; }
-        input, select, textarea {
-            width: 100%; padding: 10px; border: 1px solid var(--border);
-            border-radius: 6px; font-size: 14px; background: var(--input-bg); color: var(--text);
-            outline: none; transition: border-color 0.2s;
-        }
-        input:focus, select:focus, textarea:focus { border-color: var(--primary); }
-
-        .dinamic-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; color: var(--text); }
-        .dinamic-table th, .dinamic-table td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }
-        .dinamic-table th { background: var(--input-bg); color: var(--text-secondary); font-weight: bold; }
-        .dinamic-table tr:hover { background: rgba(255,255,255,0.02); }
-
-        .dinamic-table tr.weekend-row { background-color: var(--weekend-bg) !important; color: var(--weekend-text) !important; }
-        .dinamic-table tr.weekend-row input { color: var(--weekend-text) !important; border-color: rgba(244, 63, 94, 0.3); }
-
-        .balanco-box { background: var(--input-bg); border-radius: 6px; border: 1px solid var(--border); padding: 15px; margin-top: 15px; }
-        .balanco-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
-        .balanco-row.total { font-size: 18px; font-weight: bold; border-top: 1px dashed var(--border); padding-top: 10px; color: var(--success); }
-
-        button {
-            width: 100%; padding: 12px; background-color: var(--primary); color: #0f172a;
-            border: none; border-radius: 6px; font-size: 14px; font-weight: bold; cursor: pointer; transition: opacity 0.2s;
-        }
-        button:hover { opacity: 0.9; }
-        .btn-success { background-color: var(--success); color: #fff; }
-        .btn-danger { background-color: var(--danger); color: #fff; padding: 6px 10px; width: auto; font-size: 11px; }
-        .btn-action { width: auto; padding: 6px 12px; font-size: 12px; }
-
-        .preview-img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; }
-
-        .todo-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 12px; border-bottom: 1px solid var(--border); background: var(--input-bg);
-            margin-bottom: 8px; border-radius: 6px; border-left: 4px solid var(--text-secondary);
-        }
-        .todo-item.executado { border-left-color: var(--success); text-decoration: line-through; opacity: 0.7; }
-        .todo-item.pendente { border-left-color: var(--warning); }
-        .todo-item-info h4 { font-size: 14px; color: var(--text); }
-        .todo-item-info p { font-size: 12px; color: var(--text-secondary); }
-        .todo-actions { display: flex; gap: 8px; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <header>
-        <div class="logo-area">
-            <div class="logo-text">Trend Controls</div>
-        </div>
-        <div class="sys-title">
-            <h1>Relatório de Despesas & Reembolso</h1>
-            <p>Empreendimento: <strong>Trend Controls</strong></p>
-        </div>
-    </header>
-
-    <div class="tabs-menu">
-        <button class="tab-button active" onclick="switchTab('reembolso', this)">💰 Reembolso</button>
-        <button class="tab-button" onclick="switchTab('folhaPonto', this); renderizarFolhaPonto()">📅 Folha de Ponto</button>
-        <button class="tab-button" onclick="switchTab('agenda', this); renderizarAgenda()">📓 Agenda Diária</button>
-    </div>
-
-    <div id="reembolso" class="tab-content active">
-        <div class="card">
-            <h2>📋 Identificação e Dados de Controle</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Colaborador</label>
-                    <input type="text" id="colaborador" value="Rafael Ferreira Barros">
-                </div>
-                <div class="form-group">
-                    <label>Obra</label>
-                    <input type="text" id="obra" value="LUPO (ARARAQUARA)">
-                </div>
-                <div class="form-group">
-                    <label>Valor Adiantado (R$)</label>
-                    <input type="number" id="adiantamento" value="350.00" step="0.01" oninput="calcularTotais()">
-                </div>
-            </div>
-            
-            <h2>🏦 Dados para Depósito/Reembolso</h2>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Banco</label>
-                    <input type="text" id="banco" value="Itaú">
-                </div>
-                <div class="form-group">
-                    <label>Agência</label>
-                    <input type="text" id="agencia" value="7752">
-                </div>
-                <div class="form-group">
-                    <label>Conta Corrente</label>
-                    <input type="text" id="conta" value="07959-5">
-                </div>
-                <div class="form-group">
-                    <label>CPF</label>
-                    <input type="text" id="cpf" value="415.863.168-85">
-                </div>
-            </div>
-        </div>
-
-        <div class="grid">
-            <div>
-                <div class="card">
-                    <h2>✍️ Adicionar Novo Lançamento</h2>
-                    <form id="formLancamento" onsubmit="adicionarItem(event)">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Data</label>
-                                <input type="date" id="notaData" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Categoria de Despesa</label>
-                                <select id="notaCategoria" required>
-                                    <option value="Refeições/Lanche">Refeições/Lanche</option>
-                                    <option value="Uber">Uber / Táxi</option>
-                                    <option value="Estacionamento/Pedagio">Estacionamento/Pedagio</option>
-                                    <option value="Combustivel/KM">Combustivel/KM</option>
-                                    <option value="Mat p/ Obra">Mat p/ Obra</option>
-                                    <option value="Estadia">Estadia</option>
-                                    <option value="Diversos/Obs">Diversos/Obs</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label>Descrição / Detalhamento</label>
-                                <input type="text" id="notaDescricao" placeholder="Ex: Combustível deslocamento SP x Araraquara" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Valor (R$)</label>
-                                <input type="number" id="notaValor" step="0.01" placeholder="0.00" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>📸 Anexar Foto do Cupom/Nota</label>
-                                <input type="file" id="notaArquivo" accept="image/*" onchange="processarFoto(this)">
-                            </div>
-                            <div class="form-group" style="justify-content: flex-end;">
-                                <button type="submit" class="btn-success">Adicionar à Planilha</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-
-                <div class="card">
-                    <h2>📊 Extrato de Despesas Lançadas (Ordem Cronológica)</h2>
-                    <table class="dinamic-table" id="tabelaDespesas">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Categoria</th>
-                                <th>Descrição / Detalhamento</th>
-                                <th>Anexo</th>
-                                <th>Valor</th>
-                                <th style="width: 80px;">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpoTabela"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 20px;">
-                <div class="card">
-                    <h2>💰 Balanço Geral de Caixa</h2>
-                    <div class="balanco-box">
-                        <div class="balanco-row">
-                            <span>Adiantamento Recebido:</span>
-                            <span id="balAncAdiantamento">R$ 350,00</span>
-                        </div>
-                        <div class="balanco-row">
-                            <span>Total de Despesas:</span>
-                            <span id="balAncDespesas">R$ 0,00</span>
-                        </div>
-                        <div class="balanco-row total" id="balAncContainer">
-                            <span id="balAncLabel">Saldo a Receber:</span>
-                            <span id="balAncValor">R$ 0,00</span>
-                        </div>
-                    </div>
-                    <button type="button" style="margin-top: 15px;" onclick="exportarRelatorioParaPDF()">🖨️ Exportar Planilha em PDF</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="folhaPonto" class="tab-content">
-        <div class="card">
-            <h2>📅 Folha de Ponto Coletiva <span id="periodoFolha" style="color: var(--primary); font-size: 14px; margin-left: 10px;"></span></h2>
-            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 20px;">Ciclo mensal de fechamento: Dia 20 do mês anterior ao dia 20 do mês atual. Fins de semana e feriados destacados em vermelho.</p>
-            
-            <div style="overflow-x: auto;">
-                <table class="dinamic-table">
-                    <thead>
-                        <tr>
-                            <th>Data/Dia</th>
-                            <th>Entrada 1</th>
-                            <th>Saída 1 (Almoço)</th>
-                            <th>Entrada 2 (Retorno)</th>
-                            <th>Saída 2</th>
-                            <th>Observações / Justificativas</th>
-                        </tr>
-                    </thead>
-                    <tbody id="corpoPonto">
-                        </tbody>
-                </table>
-            </div>
-            <button type="button" class="btn-success" style="margin-top: 20px; width: 250px;" onclick="salvarFolhaPonto()">💾 Salvar Folha de Ponto</button>
-        </div>
-    </div>
-
-    <div id="agenda" class="tab-content">
-        <div class="grid">
-            <div>
-                <div class="card">
-                    <h2>📝 Nova Atividade / Serviço</h2>
-                    <form id="formAgenda" onsubmit="adicionarTarefa(event)">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Data da Atividade</label>
-                                <input type="date" id="agendaData" required onchange="renderizarAgenda()">
-                            </div>
-                            <div class="form-group">
-                                <label>Título do Serviço</label>
-                                <input type="text" id="agendaTitulo" placeholder="Ex: Passar cabeamento setor A" required>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group" style="grid-column: span 2;">
-                                <label>Detalhamento da Tarefa / Notas</label>
-                                <textarea id="agendaDescricao" placeholder="Escreva observações adicionais ou notas para o dia..." rows="2"></textarea>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn-success">Adicionar à Agenda</button>
-                    </form>
-                </div>
-
-                <div class="card">
-                    <h2>📋 Serviços Agendados para o Dia <span id="agendaDataSelecionada" style="color:var(--primary)"></span></h2>
-                    <div id="listaTarefas" style="margin-top: 15px;">
-                        </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h2>💡 Resumo Geral da Agenda</h2>
-                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">Use o painel para organizar as atividades na obra diária da Lupo Araraquara. Você pode marcar cada tarefa como "Executada" para controle ou removê-las quando necessário.</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
+    // Variáveis Globais de Reembolso, Ponto e Agenda Integradas
     let lancamentos = [];
     let imagemTemporariaBase64 = "";
     let bancoDadosPonto = JSON.parse(localStorage.getItem('bancoDadosPonto')) || {};
@@ -632,273 +541,14 @@
         "01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "11-20", "12-25"
     ];
 
-    document.getElementById('notaData').valueAsDate = new Date();
-    document.getElementById('agendaData').valueAsDate = new Date();
-
-    function switchTab(tabId, btnElement) {
-        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-        
-        document.getElementById(tabId).classList.add('active');
-        btnElement.classList.add('active');
-    }
-
-    function processarFoto(input) {
-        if (input.files && input.files[0]) {
-            const leitor = new FileReader();
-            leitor.onload = function(e) {
-                imagemTemporariaBase64 = e.target.result;
-            };
-            leitor.readAsDataURL(input.files[0]);
-        }
-    }
-
-    function adicionarItem(e) {
-        e.preventDefault();
-        const dataStr = document.getElementById("notaData").value;
-        const categoria = document.getElementById("notaCategoria").value;
-        const descricao = document.getElementById("notaDescricao").value.trim();
-        const valor = parseFloat(document.getElementById("notaValor").value);
-
-        if (!dataStr || isNaN(valor) || valor <= 0) {
-            alert("Preencha as informações de data e valor corretamente.");
-            return;
-        }
-
-        const novoItem = {
-            id: Date.now(),
-            data: new Date(dataStr + "T12:00:00"),
-            categoria: categoria,
-            descricao: descricao,
-            valor: valor,
-            imagem: imagemTemporariaBase64
-        };
-
-        lancamentos.push(novoItem);
-        lancamentos.sort((a, b) => a.data - b.data);
-
-        document.getElementById("notaDescricao").value = "";
-        document.getElementById("notaValor").value = "";
-        document.getElementById("notaArquivo").value = "";
-        imagemTemporariaBase64 = "";
-
-        atualizarTela();
-    }
-
-    function removerItem(id) {
-        lancamentos = lancamentos.filter(item => item.id !== id);
-        atualizarTela();
-    }
-
-    function calcularTotais() {
-        const adiantamento = parseFloat(document.getElementById("adiantamento").value) || 0;
-        let totalDespesas = 0;
-        lancamentos.forEach(item => totalDespesas += item.valor);
-        const saldo = totalDespesas - adiantamento;
-
-        document.getElementById("balAncAdiantamento").innerText = "R$ " + adiantamento.toFixed(2).replace(".", ",");
-        document.getElementById("balAncDespesas").innerText = "R$ " + totalDespesas.toFixed(2).replace(".", ",");
-        
-        const container = document.getElementById("balAncContainer");
-        const label = document.getElementById("balAncLabel");
-        const valorField = document.getElementById("balAncValor");
-
-        if (saldo >= 0) {
-            label.innerText = "Saldo a Receber:";
-            valorField.innerText = "R$ " + saldo.toFixed(2).replace(".", ",");
-            container.style.color = "#10b981";
-        } else {
-            label.innerText = "Saldo a Devolver:";
-            valorField.innerText = "R$ " + Math.abs(saldo).toFixed(2).replace(".", ",");
-            container.style.color = "#f43f5e";
-        }
-    }
-
-    function atualizarTela() {
-        const corpo = document.getElementById("corpoTabela");
-        corpo.innerHTML = "";
-
-        lancamentos.forEach(item => {
-            const tr = document.createElement("tr");
-            const dataFmt = item.data.toLocaleDateString("pt-BR");
-            const anexoHTML = item.imagem 
-                ? "<img src='" + item.imagem + "' class='preview-img' onclick='window.open(this.src)'>"
-                : "<span style='color:var(--text-secondary)'>Sem foto</span>";
-
-            tr.innerHTML = "<td><strong>" + dataFmt + "</strong></td><td><span style='color:var(--primary); font-weight:600;'>" + item.categoria + "</span></td><td>" + item.descricao + "</td><td>" + anexoHTML + "</td><td style='font-weight:bold; color:#fff;'>R$ " + item.valor.toFixed(2).replace(".", ",") + "</td><td><button type='button' class='btn-danger' onclick='removerItem(" + item.id + ")'>Remover</button></td>";
-            corpo.appendChild(tr);
-        });
-        calcularTotais();
-    }
-
-    function exportarRelatorioParaPDF() {
-        const colaborador = document.getElementById("colaborador").value;
-        const obra = document.getElementById("obra").value;
-        const adiantamento = parseFloat(document.getElementById("adiantamento").value) || 0;
-        let totalDespesas = 0;
-        lancamentos.forEach(item => totalDespesas += item.valor);
-        const saldo = totalDespesas - adiantamento;
-
-        const f = document.createElement('div');
-        f.style.position = 'absolute'; f.style.left = '-9999px'; f.style.width = '790px'; f.style.padding = '35px';
-        f.style.backgroundColor = '#ffffff'; f.style.color = '#1e293b';
-
-        let rowsHTML = "";
-        if (lancamentos.length > 0) {
-            lancamentos.forEach(item => {
-                rowsHTML += "<tr><td style='padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; color:#1e293b;'>" + item.data.toLocaleDateString("pt-BR") + "</td><td style='padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; font-weight:bold; color:#2563eb;'>" + item.categoria + "</td><td style='padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; color:#1e293b;'>" + item.descricao + "</td><td style='padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; text-align:right; font-weight:bold; color:#1e293b;'>R$ " + item.valor.toFixed(2).replace(".", ",") + "</td></tr>";
-            });
-        } else {
-            rowsHTML = '<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b; font-size:12px;">Nenhuma despesa registrada.</td></tr>';
-        }
-
-        let anexosHTML = "";
-        const itensComFoto = lancamentos.filter(item => item.imagem);
-        if (itensComFoto.length > 0) {
-            anexosHTML = "<h3 style='color:#2563eb; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:35px; margin-bottom:15px; font-weight:bold;'>📸 COMPROVANTES E RECIBOS ANEXOS</h3><div style='display:grid; grid-template-columns:repeat(2, 1fr); gap:15px;'>";
-            itensComFoto.forEach(item => {
-                anexosHTML += "<div style='border:1px solid #cbd5e1; padding:8px; border-radius:4px; text-align:center;'><p style='font-size:10px; color:#64748b; margin-bottom:5px;'><strong>" + item.data.toLocaleDateString("pt-BR") + "</strong> - " + item.categoria + "</p><img src='" + item.imagem + "' style='width:100%; height:200px; object-fit:contain;'></div>";
-            });
-            anexosHTML += "</div>";
-        }
-
-        f.innerHTML = "<div style='border-bottom:3px solid #2563eb; padding-bottom:10px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;'><div><h2 style='color:#2563eb; margin:0; font-size:24px; font-weight:bold;'>MONTRECON</h2><p style='font-size:12px; color:#64748b; margin:2px 0 0 0;'>Relatório de Prestação de Contas e Reembolso</p></div><div style='text-align:right; font-size:12px; color:#1e293b;'><p><strong>Obra:</strong> " + obra + "</p><p><strong>Emissão:</strong> " + new Date().toLocaleDateString('pt-BR') + "</p></div></div><table style='width:100%; margin-bottom:25px; font-size:12px; background:#f8fafc; border:1px solid #cbd5e1; border-collapse:collapse; color:#1e293b;' cellpadding='6'><tr style='background:#cbd5e1; font-weight:bold; color:#1e293b;'><td colspan='4'>📋 IDENTIFICAÇÃO DO COLABORADOR</td></tr><tr><td><strong>Colaborador:</strong> " + colaborador + "</td><td><strong>Banco:</strong> " + document.getElementById("banco").value + "</td><td><strong>Agência:</strong> " + document.getElementById("agencia").value + "</td><td><strong>Conta:</strong> " + document.getElementById("conta").value + "</td></tr><tr><td colspan='4'><strong>CPF para Transferência:</strong> " + document.getElementById("cpf").value + "</td></tr></table><h3 style='color:#2563eb; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:20px; margin-bottom:10px; font-weight:bold;'>📊 DEMONSTRATIVO DE CUSTOS LANÇADOS</h3><table style='width:100%; font-size:12px; border-collapse:collapse; color:#1e293b;' cellpadding='6'><thead><tr style='background:#f1f5f9; font-weight:bold;'><th style='text-align:left; border-bottom:2px solid #cbd5e1;'>Data</th><th style='text-align:left; border-bottom:2px solid #cbd5e1;'>Categoria</th><th style='text-align:left; border-bottom:2px solid #cbd5e1;'>Descrição / Detalhe</th><th style='text-align:right; border-bottom:2px solid #cbd5e1; width:110px;'>Valor</th></tr></thead><tbody>" + rowsHTML + "</tbody></table><div style='display:flex; justify-content:flex-end; margin-top:20px;'><table style='width:320px; font-size:13px; border-collapse:collapse; color:#1e293b;' cellpadding='6'><tr><td style='border-bottom:1px solid #e2e8f0; color:#64748b;'>Adiantamento Recebido:</td><td style='text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;'>R$ " + adiantamento.toFixed(2).replace(".", ",") + "</td></tr><tr><td style='border-bottom:1px solid #e2e8f0; color:#64748b;'>Total de Despesas do Período:</td><td style='text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;'>R$ " + totalDespesas.toFixed(2).replace(".", ",") + "</td></tr><tr style='background:" + (saldo >= 0 ? '#dcfce7' : '#fee2e2') + "; color:" + (saldo >= 0 ? '#15803d' : '#b91c1c') + "; font-size:14px; font-weight:bold;'><td style='border-radius:4px 0 0 4px; padding:8px;'>" + (saldo >= 0 ? 'SALDO A RECEBER:' : 'SALDO A DEVOLVER:') + "</td><td style='text-align:right; border-radius:0 4px 4px 0; padding:8px;'>R$ " + Math.abs(saldo).toFixed(2).replace(".", ",") + "</td></tr></table></div>" + anexosHTML + "<div style='margin-top:50px; display:flex; justify-content:space-around; text-align:center; font-size:11px; color:#64748b;'><div style='width:200px;'><div style='border-bottom:1px solid #000; margin-bottom:5px;'></div>Assinatura do Colaborador</div><div style='width:200px;'><div style='border-bottom:1px solid #000; margin-bottom:5px;'></div>Aprovação Financeiro/Gerência</div></div>";
-
-        document.body.appendChild(f);
-        const conf = {
-            margin: 10,
-            filename: 'Relatorio_Reembolso_Lupo_Araraquara.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, logging: false },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().set(conf).from(f).save().then(() => f.remove());
-    }
-
-    function verificarSeEhFeriado(dataObj) {
-        const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
-        const dia = String(dataObj.getDate()).padStart(2, '0');
-        return feriadosFixos.includes(mes + "-" + dia);
-    }
-
-    function gerarPeriodoFechamento() {
-        const hoje = new Date();
-        return { dataInicio: new Date(hoje.getFullYear(), hoje.getMonth() - 1, 20), dataFim: new Date(hoje.getFullYear(), hoje.getMonth(), 20) };
-    }
-
-    function renderizarFolhaPonto() {
-        const { dataInicio, dataFim } = gerarPeriodoFechamento();
-        const corpoPonto = document.getElementById("corpoPonto");
-        corpoPonto.innerHTML = "";
-        document.getElementById("periodoFolha").innerText = "(" + dataInicio.toLocaleDateString('pt-BR') + " até " + dataFim.toLocaleDateString('pt-BR') + ")";
-
-        let atual = new Date(dataInicio);
-        const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-
-        while (atual <= dataFim) {
-            const dataIso = atual.toISOString().split('T')[0];
-            const diaSemanaNum = atual.getDay();
-            const ehFeriado = verificarSeEhFeriado(atual);
-            const ehFimDeSemana = (diaSemanaNum === 0 || diaSemanaNum === 6);
-            const destacarDia = ehFimDeSemana || ehFeriado;
-
-            const dadosDia = bancoDadosPonto[dataIso] || { 
-                ent1: destacarDia ? "" : "07:00", 
-                sai1: destacarDia ? "" : "12:00", 
-                ent2: destacarDia ? "" : "13:00", 
-                sai2: destacarDia ? "" : "17:00", 
-                obs: ehFeriado ? "Feriado Nacional" : "" 
-            };
-
-            const tr = document.createElement("tr");
-            if (destacarDia) tr.className = "weekend-row";
-
-            tr.innerHTML = "<td><strong>" + atual.toLocaleDateString('pt-BR') + " (" + diasSemana[diaSemanaNum] + ")</strong></td><td><input type='time' id='ent1-" + dataIso + "' value='" + dadosDia.ent1 + "'></td><td><input type='time' id='sai1-" + dataIso + "' value='" + dadosDia.sai1 + "'></td><td><input type='time' id='ent2-" + dataIso + "' value='" + dadosDia.ent2 + "'></td><td><input type='time' id='sai2-" + dataIso + "' value='" + dadosDia.sai2 + "'></td><td><input type='text' id='obs-" + dataIso + "' placeholder='Observação...' value='" + dadosDia.obs + "'></td>";
-            corpoPonto.appendChild(tr);
-            atual.setDate(atual.getDate() + 1);
-        }
-    }
-
-    function salvarFolhaPonto() {
-        const { dataInicio, dataFim } = gerarPeriodoFechamento();
-        let atual = new Date(dataInicio);
-        while (atual <= dataFim) {
-            const dataIso = atual.toISOString().split('T')[0];
-            bancoDadosPonto[dataIso] = {
-                ent1: document.getElementById("ent1-" + dataIso).value,
-                sai1: document.getElementById("sai1-" + dataIso).value,
-                ent2: document.getElementById("ent2-" + dataIso).value,
-                sai2: document.getElementById("sai2-" + dataIso).value,
-                obs: document.getElementById("obs-" + dataIso).value
-            };
-            atual.setDate(atual.getDate() + 1);
-        }
-        localStorage.setItem('bancoDadosPonto', JSON.stringify(bancoDadosPonto));
-        alert("Folha de Ponto salva localmente!");
-    }
-
-    function renderizarAgenda() {
-        const dataSelecionada = document.getElementById("agendaData").value;
-        if (!dataSelecionada) return;
-        document.getElementById("agendaDataSelecionada").innerText = new Date(dataSelecionada + "T12:00:00").toLocaleDateString('pt-BR');
-
-        const lista = document.getElementById("listaTarefas");
-        lista.innerHTML = "";
-        const tarefasDia = bancoDadosAgenda.filter(t => t.data === dataSelecionada);
-
-        if (tarefasDia.length === 0) {
-            lista.innerHTML = "<p style='color:var(--text-secondary); text-align:center; padding: 20px 0;'>Nenhum serviço agendado.</p>";
-            return;
-        }
-
-        tarefasDia.forEach(t => {
-            const div = document.createElement("div");
-            div.className = "todo-item " + t.status;
-            div.innerHTML = "<div class='todo-item-info'><h4>" + t.titulo + "</h4><p>" + (t.descricao || 'Sem descrição.') + "</p></div><div class='todo-actions'><button class='btn-success btn-action' onclick='alterarStatusTarefa(" + t.id + ", \"executado\")'>✓ Executado</button><button class='btn-action' style='background-color: var(--warning); color:#fff;' onclick='alterarStatusTarefa(" + t.id + ", \"pendente\")'>⚠ Pendente</button><button class='btn-danger btn-action' onclick='removerTarefa(" + t.id + ")'>Excluir</button></div>";
-            lista.appendChild(div);
-        });
-    }
-
-    function adicionarTarefa(e) {
-        e.preventDefault();
-        const data = document.getElementById("agendaData").value;
-        const titulo = document.getElementById("agendaTitulo").value.trim();
-        const descricao = document.getElementById("agendaDescricao").value.trim();
-        if (!data || !titulo) return;
-
-        bancoDadosAgenda.push({ id: Date.now(), data, titulo, descricao, status: 'pendente' });
-        localStorage.setItem('bancoDadosAgenda', JSON.stringify(bancoDadosAgenda));
-        document.getElementById("agendaTitulo").value = "";
-        document.getElementById("agendaDescricao").value = "";
-        renderizarAgenda();
-    }
-
-    function alterarStatusTarefa(id, status) {
-        bancoDadosAgenda = bancoDadosAgenda.map(t => { if (t.id === id) t.status = status; return t; });
-        localStorage.setItem('bancoDadosAgenda', JSON.stringify(bancoDadosAgenda));
-        renderizarAgenda();
-    }
-
-    function removerTarefa(id) {
-        bancoDadosAgenda = bancoDadosAgenda.filter(t => t.id !== id);
-        localStorage.setItem('bancoDadosAgenda', JSON.stringify(bancoDadosAgenda));
-        renderizarAgenda();
-    }
-
-    atualizarTela();
-<\/script>
-</body>
-</html>`;
-
-        novaJanela.document.write(htmlReembolso);
-        novaJanela.document.close();
-    }
+    const divConfig = [{ nome: 'Cabeamento', peso: 0.18 }, { nome: 'Conectorização', peso: 0.18 }, { nome: 'Comissionamento', peso: 0.18 }, { nome: 'Lógica (DDC)', peso: 0.18 }, { nome: 'Supervisório', peso: 0.18 }, { nome: 'Documentação', peso: 0.10 }];
+    
+    function gerarUUID() { return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); }
 
     async function checarLogin() {
         const u = document.getElementById("userInput").value.trim(), p = document.getElementById("passInput").value.trim(), btn = document.getElementById("btnLoginAction");
         if (!u || !p) return alert("Preencha todos os campos.");
         btn.disabled = true; btn.innerText = "Autenticando...";
-        
         try {
             let r = await fetch(URL_GOOGLE_API + "?usuario=" + encodeURIComponent(u) + "&senha=" + encodeURIComponent(p));
             let res = await r.json();
@@ -912,8 +562,8 @@
 
     function autenticarUsuarioPainel() {
         document.getElementById("tela-login").style.display = "none";
-        
         document.getElementById("tabBtnDashboard").style.display = "none";
+        document.getElementById("tabBtnMinhaArea").style.display = "none";
         document.getElementById("tabBtnPessoas").style.display = "none";
         document.getElementById("tabBtnUsuarios").style.display = "none";
         document.querySelectorAll(".operar-only, .admin-only").forEach(el => el.style.display = "none");
@@ -924,6 +574,11 @@
 
         if (possuiOperacao) document.querySelectorAll(".operar-only").forEach(el => el.style.display = "block");
         if (possuiAdmin) document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
+
+        // Qualquer usuário logado que tenha ao menos o nível de visualização padrão
+        if (usuarioAtualPermissoes) {
+            document.getElementById("tabBtnMinhaArea").style.display = "block";
+        }
 
         if (possuiAdminGerente) {
             document.getElementById("tabBtnDashboard").style.display = "block";
@@ -937,7 +592,8 @@
     }
 
     function logoff() {
-        usuarioLogadoNome = ""; usuarioAtualPermissoes = "ver";
+        usuarioLogadoNome = "";
+        usuarioAtualPermissoes = "ver";
         document.getElementById("userInput").value = ""; document.getElementById("passInput").value = "";
         document.getElementById("tela-login").style.display = "flex";
         document.getElementById("btnLoginAction").disabled = false; document.getElementById("btnLoginAction").innerText = "Entrar";
@@ -945,7 +601,19 @@
 
     async function inicializarApp() {
         await carregarDadosDaNuvem();
+        // Inicialização de datas nos subformulários de reembolso e agenda
+        document.getElementById('notaData').valueAsDate = new Date();
+        document.getElementById('agendaData').valueAsDate = new Date();
         setInterval(async () => { await salvarEAtualizarPelaPlanilhaSilencioso(); }, 30000);
+    }
+
+    // Carrega dinamicamente os inputs de acordo com o login ativo do colaborador
+    function carregarDadosUsuarioLogado() {
+        document.getElementById("colaboradorTitulo").innerText = usuarioLogadoNome;
+        document.getElementById("colaborador").value = usuarioLogadoNome;
+        
+        // Atualiza a tela de reembolso localmente para carregar despesas salvas
+        atualizarTela();
     }
 
     async function carregarDadosDaNuvem() {
@@ -974,10 +642,398 @@
         if (document.getElementById("tab-dashboard").classList.contains("active")) renderizarDashboardGeral();
         if (document.getElementById("tab-obras").classList.contains("active")) renderizarObras();
         if (document.getElementById("tab-manutencao").classList.contains("active")) renderizarMaint();
+        if (document.getElementById("tab-minha-area").classList.contains("active")) carregarDadosUsuarioLogado();
         if (document.getElementById("tab-pessoas").classList.contains("active")) renderizarPessoas();
         if (document.getElementById("tab-usuarios").classList.contains("active")) renderizarUsuarios();
     }
 
+    // SUB-NAVEGAÇÃO INTERNA DA ÁREA DO USUÁRIO
+    function alternarSubAbaUsuario(subAbaId, btnElement) {
+        document.querySelectorAll('.inner-tab-content').forEach(content => content.classList.remove('active'));
+        document.querySelectorAll('.inner-tab-btn').forEach(btn => btn.classList.remove('active'));
+
+        document.getElementById(subAbaId).classList.add('active');
+        btnElement.classList.add('active');
+    }
+
+    /* ==========================================================================
+       FUNCIONALIDADES INTEGRADAS DE REEMBOLSO (REEMBOLSO.TXT)
+       ========================================================================== */
+    function processarFoto(input) {
+        if (input.files && input.files[0]) {
+            const leitor = new FileReader();
+            leitor.onload = function(e) { imagemTemporariaBase64 = e.target.result; };
+            leitor.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function adicionarItem(e) {
+        e.preventDefault();
+        const dataStr = document.getElementById("notaData").value;
+        const categoria = document.getElementById("notaCategoria").value;
+        const descricao = document.getElementById("notaDescricao").value.trim();
+        const valor = parseFloat(document.getElementById("notaValor").value);
+        if (!dataStr || isNaN(valor) || valor <= 0) {
+            alert("Preencha as informações de data e valor corretamente.");
+            return;
+        }
+
+        const novoItem = {
+            id: Date.now(),
+            data: new Date(dataStr + "T12:00:00"),
+            categoria: categoria,
+            descricao: descricao,
+            valor: valor,
+            imagem: imagemTemporariaBase64,
+            usuarioRelacionado: usuarioLogadoNome // Vincula a despesa ao usuário logado
+        };
+
+        lancamentos.push(novoItem);
+        lancamentos.sort((a, b) => a.data - b.data);
+
+        document.getElementById("notaDescricao").value = "";
+        document.getElementById("notaValor").value = "";
+        document.getElementById("notaArquivo").value = "";
+        imagemTemporariaBase64 = "";
+
+        atualizarTela();
+    }
+
+    function removerItem(id) {
+        lancamentos = lancamentos.filter(item => item.id !== id);
+        atualizarTela();
+    }
+
+    function calcularTotais() {
+        const adiantamento = parseFloat(document.getElementById("adiantamento").value) || 0;
+        let totalDespesas = 0;
+        
+        // Filtra despesas apenas do usuário logado corrente
+        const lancamentosFiltrados = lancamentos.filter(item => item.usuarioRelacionado === usuarioLogadoNome);
+        lancamentosFiltrados.forEach(item => totalDespesas += item.valor);
+        const saldo = totalDespesas - adiantamento;
+
+        document.getElementById("balAncAdiantamento").innerText = `R$ ${adiantamento.toFixed(2).replace(".", ",")}`;
+        document.getElementById("balAncDespesas").innerText = `R$ ${totalDespesas.toFixed(2).replace(".", ",")}`;
+        
+        const container = document.getElementById("balAncContainer");
+        const label = document.getElementById("balAncLabel");
+        const valorField = document.getElementById("balAncValor");
+
+        if (saldo >= 0) {
+            label.innerText = "Saldo a Receber:";
+            valorField.innerText = `R$ ${saldo.toFixed(2).replace(".", ",")}`;
+            container.style.color = "#10b981";
+        } else {
+            label.innerText = "Saldo a Devolver:";
+            valorField.innerText = `R$ ${Math.abs(saldo).toFixed(2).replace(".", ",")}`;
+            container.style.color = "#f43f5e";
+        }
+    }
+
+    function atualizarTela() {
+        const corpo = document.getElementById("corpoTabela");
+        corpo.innerHTML = "";
+
+        // Carrega e renderiza somente as despesas pertencentes ao usuário ativo
+        const lancamentosFiltrados = lancamentos.filter(item => item.usuarioRelacionado === usuarioLogadoNome);
+
+        lancamentosFiltrados.forEach(item => {
+            const tr = document.createElement("tr");
+            const dataFmt = new Date(item.data).toLocaleDateString("pt-BR");
+            const anexoHTML = item.imagem 
+                ? `<img src="${item.imagem}" class="preview-img" onclick="window.open(this.src)">`
+                : `<span style="color:#94a3b8">Sem foto</span>`;
+
+            tr.innerHTML = `
+                <td><strong>${dataFmt}</strong></td>
+                <td><span style="color:#38bdf8; font-weight:600;">${item.categoria}</span></td>
+                <td>${item.descricao}</td>
+                <td>${anexoHTML}</td>
+                <td style="font-weight:bold; color:#fff;">R$ ${item.valor.toFixed(2).replace(".", ",")}</td>
+                <td><button type="button" class="btn-danger" onclick="removerItem(${item.id})">Remover</button></td>
+            `;
+            corpo.appendChild(tr);
+        });
+        calcularTotais();
+    }
+
+    function exportarRelatorioParaPDF() {
+        const colaborador = usuarioLogadoNome;
+        const obra = document.getElementById("obra").value;
+        const adiantamento = parseFloat(document.getElementById("adiantamento").value) || 0;
+        let totalDespesas = 0;
+        
+        const lancamentosFiltrados = lancamentos.filter(item => item.usuarioRelacionado === usuarioLogadoNome);
+        lancamentosFiltrados.forEach(item => totalDespesas += item.valor);
+        const saldo = totalDespesas - adiantamento;
+
+        const f = document.createElement('div');
+        f.style.position = 'absolute'; f.style.left = '-9999px'; f.style.width = '790px';
+        f.style.padding = '35px'; f.style.backgroundColor = '#ffffff'; f.style.color = '#1e293b';
+
+        let rowsHTML = "";
+        if (lancamentosFiltrados.length > 0) {
+            lancamentosFiltrados.forEach(item => {
+                rowsHTML += `
+                    <tr>
+                        <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; color:#1e293b;">${new Date(item.data).toLocaleDateString("pt-BR")}</td>
+                        <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; font-weight:bold; color:#2563eb;">${item.categoria}</td>
+                        <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; color:#1e293b;">${item.descricao}</td>
+                        <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; text-align:right; font-weight:bold; color:#1e293b;">R$ ${item.valor.toFixed(2).replace(".", ",")}</td>
+                    </tr>`;
+            });
+        } else {
+            rowsHTML = '<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b; font-size:12px;">Nenhuma despesa registrada.</td></tr>';
+        }
+
+        let anexosHTML = "";
+        const itensComFoto = lancamentosFiltrados.filter(item => item.imagem);
+        if (itensComFoto.length > 0) {
+            anexosHTML = `<h3 style="color:#2563eb; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:35px; margin-bottom:15px; font-weight:bold;">📸 COMPROVANTES E RECIBOS ANEXOS</h3><div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:15px;">`;
+            itensComFoto.forEach(item => {
+                anexosHTML += `
+                    <div style="border:1px solid #cbd5e1; padding:8px; border-radius:4px; text-align:center;">
+                        <p style="font-size:10px; color:#64748b; margin-bottom:5px;"><strong>${new Date(item.data).toLocaleDateString("pt-BR")}</strong> - ${item.categoria}</p>
+                        <img src="${item.imagem}" style="width:100%; height:200px; object-fit:contain;">
+                    </div>`;
+            });
+            anexosHTML += `</div>`;
+        }
+
+        f.innerHTML = `
+            <div style="border-bottom:3px solid #2563eb; padding-bottom:10px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 style="color:#2563eb; margin:0; font-size:24px; font-weight:bold;">MONTRECON</h2>
+                    <p style="font-size:12px; color:#64748b; margin:2px 0 0 0;">Relatório de Prestação de Contas e Reembolso</p>
+                </div>
+                <div style="text-align:right; font-size:12px; color:#1e293b;">
+                    <p><strong>Obra:</strong> ${obra}</p>
+                    <p><strong>Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+                </div>
+            </div>
+            <table style="width:100%; margin-bottom:25px; font-size:12px; background:#f8fafc; border:1px solid #cbd5e1; border-collapse:collapse; color:#1e293b;" cellpadding="6">
+                <tr style="background:#cbd5e1; font-weight:bold; color:#1e293b;"><td colspan="4">📋 IDENTIFICAÇÃO DO COLABORADOR</td></tr>
+                <tr>
+                    <td><strong>Colaborador:</strong> ${colaborador}</td>
+                    <td><strong>Banco:</strong> ${document.getElementById("banco").value}</td>
+                    <td><strong>Agência:</strong> ${document.getElementById("agencia").value}</td>
+                    <td><strong>Conta:</strong> ${document.getElementById("conta").value}</td>
+                </tr>
+                <tr><td colspan="4"><strong>CPF para Transferência:</strong> ${document.getElementById("cpf").value}</td></tr>
+            </table>
+            <h3 style="color:#2563eb; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:20px; margin-bottom:10px; font-weight:bold;">📊 DEMONSTRATIVO DE CUSTOS LANÇADOS</h3>
+            <table style="width:100%; font-size:12px; border-collapse:collapse; color:#1e293b;" cellpadding="6">
+                <thead>
+                    <tr style="background:#f1f5f9; font-weight:bold;">
+                        <th style="text-align:left; border-bottom:2px solid #cbd5e1;">Data</th>
+                        <th style="text-align:left; border-bottom:2px solid #cbd5e1;">Categoria</th>
+                        <th style="text-align:left; border-bottom:2px solid #cbd5e1;">Descrição / Detalhe</th>
+                        <th style="text-align:right; border-bottom:2px solid #cbd5e1; width:110px;">Valor</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHTML}</tbody>
+            </table>
+            <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+                <table style="width:320px; font-size:13px; border-collapse:collapse; color:#1e293b;" cellpadding="6">
+                    <tr><td style="border-bottom:1px solid #e2e8f0; color:#64748b;">Adiantamento Recebido:</td><td style="text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;">R$ ${adiantamento.toFixed(2).replace(".", ",")}</td></tr>
+                    <tr><td style="border-bottom:1px solid #e2e8f0; color:#64748b;">Total de Despesas do Período:</td><td style="text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;">R$ ${totalDespesas.toFixed(2).replace(".", ",")}</td></tr>
+                    <tr style="background:${saldo >= 0 ? '#dcfce7' : '#fee2e2'}; color:${saldo >= 0 ? '#15803d' : '#b91c1c'}; font-size:14px; font-weight:bold;">
+                        <td style="border-radius:4px 0 0 4px; padding:8px;">${saldo >= 0 ? 'SALDO A RECEBER:' : 'SALDO A DEVOLVER:'}</td>
+                        <td style="text-align:right; border-radius:0 4px 4px 0; padding:8px;">R$ ${Math.abs(saldo).toFixed(2).replace(".", ",")}</td>
+                    </tr>
+                </table>
+            </div>
+            ${anexosHTML}
+            <div style="margin-top:50px; display:flex; justify-content:space-around; text-align:center; font-size:11px; color:#64748b;">
+                <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Assinatura do Colaborador</div>
+                <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Aprovação Financeiro/Gerência</div>
+            </div>
+        `;
+
+        document.body.appendChild(f);
+        const conf = {
+            margin: 10,
+            filename: `Relatorio_Reembolso_${colaborador}_${obra}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        html2pdf().set(conf).from(f).save().then(() => f.remove());
+    }
+
+    /* ==========================================================================
+       FUNCIONALIDADES INTEGRADAS DA FOLHA DE PONTO (REEMBOLSO.TXT)
+       ========================================================================== */
+    function verificarSeEhFeriado(dataObj) {
+        const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
+        const dia = String(dataObj.getDate()).padStart(2, '0');
+        const ddmmaa = `${mes}-${dia}`;
+        return feriadosFixos.includes(ddmmaa);
+    }
+
+    function gerarPeriodoFechamento() {
+        const hoje = new Date();
+        const anoAtual = hoje.getFullYear();
+        const mesAtual = hoje.getMonth(); 
+        const dataInicio = new Date(anoAtual, mesAtual - 1, 20);
+        const dataFim = new Date(anoAtual, mesAtual, 20);
+        return { dataInicio, dataFim };
+    }
+
+    function renderizarFolhaPonto() {
+        const { dataInicio, dataFim } = gerarPeriodoFechamento();
+        const corpoPonto = document.getElementById("corpoPonto");
+        corpoPonto.innerHTML = "";
+
+        document.getElementById("periodoFolha").innerText = `(${dataInicio.toLocaleDateString('pt-BR')} até ${dataFim.toLocaleDateString('pt-BR')})`;
+
+        let atual = new Date(dataInicio);
+        const diasSemana = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+        while (atual <= dataFim) {
+            const dataIso = atual.toISOString().split('T')[0];
+            const diaSemanaNum = atual.getDay();
+            const diaSemana = diasSemana[diaSemanaNum];
+            const dataFmt = `${atual.toLocaleDateString('pt-BR')} (${diaSemana})`;
+            
+            const ehFeriado = verificarSeEhFeriado(atual);
+            const ehFimDeSemana = (diaSemanaNum === 0 || diaSemanaNum === 6);
+            const destacarDia = ehFimDeSemana || ehFeriado;
+            
+            const defaultEnt1 = destacarDia ? "" : "07:00";
+            const defaultSai1 = destacarDia ? "" : "12:00";
+            const defaultEnt2 = destacarDia ? "" : "13:00";
+            const defaultSai2 = destacarDia ? "" : "17:00";
+            const defaultObs = ehFeriado ? "Feriado Nacional" : "";
+
+            // O localStorage do ponto agora diferencia chaves usando o usuarioLogadoNome
+            const chavePontoArmazenamento = `${usuarioLogadoNome}_${dataIso}`;
+            const dadosDia = bancoDadosPonto[chavePontoArmazenamento] || { 
+                ent1: defaultEnt1, sai1: defaultSai1, ent2: defaultEnt2, sai2: defaultSai2, obs: defaultObs 
+            };
+
+            const tr = document.createElement("tr");
+            if (destacarDia) { tr.className = "weekend-row"; }
+
+            tr.innerHTML = `
+                <td><strong>${dataFmt}</strong></td>
+                <td><input type="time" id="ent1-${dataIso}" value="${dadosDia.ent1}"></td>
+                <td><input type="time" id="sai1-${dataIso}" value="${dadosDia.sai1}"></td>
+                <td><input type="time" id="ent2-${dataIso}" value="${dadosDia.ent2}"></td>
+                <td><input type="time" id="sai2-${dataIso}" value="${dadosDia.sai2}"></td>
+                <td><input type="text" id="obs-${dataIso}" placeholder="Observação..." value="${dadosDia.obs}"></td>
+            `;
+            corpoPonto.appendChild(tr);
+            atual.setDate(atual.getDate() + 1);
+        }
+    }
+
+    function salvarFolhaPonto() {
+        const { dataInicio, dataFim } = gerarPeriodoFechamento();
+        let atual = new Date(dataInicio);
+
+        while (atual <= dataFim) {
+            const dataIso = atual.toISOString().split('T')[0];
+            const chavePontoArmazenamento = `${usuarioLogadoNome}_${dataIso}`;
+            
+            bancoDadosPonto[chavePontoArmazenamento] = {
+                ent1: document.getElementById(`ent1-${dataIso}`).value,
+                sai1: document.getElementById(`sai1-${dataIso}`).value,
+                ent2: document.getElementById(`ent2-${dataIso}`).value,
+                sai2: document.getElementById(`sai2-${dataIso}`).value,
+                obs: document.getElementById(`obs-${dataIso}`).value
+            };
+            atual.setDate(atual.getDate() + 1);
+        }
+
+        localStorage.setItem('bancoDadosPonto', JSON.stringify(bancoDadosPonto));
+        alert("Sua Folha de Ponto foi salva localmente com sucesso!");
+    }
+
+
+    /* ==========================================================================
+       FUNCIONALIDADES INTEGRADAS DA AGENDA DIÁRIA (REEMBOLSO.TXT)
+       ========================================================================== */
+    function renderizarAgenda() {
+        const dataSelecionada = document.getElementById("agendaData").value;
+        if (!dataSelecionada) return;
+
+        const d = new Date(dataSelecionada + "T12:00:00");
+        document.getElementById("agendaDataSelecionada").innerText = d.toLocaleDateString('pt-BR');
+
+        const lista = document.getElementById("listaTarefas");
+        lista.innerHTML = "";
+
+        // Filtra a agenda pelo dia selecionado E pelo usuário ativamente logado
+        const tarefasDia = bancoDadosAgenda.filter(t => t.data === dataSelecionada && t.usuarioResponsavel === usuarioLogadoNome);
+
+        if (tarefasDia.length === 0) {
+            lista.innerHTML = `<p style="color:#94a3b8; text-align:center; padding: 20px 0;">Nenhum serviço agendado para você neste dia.</p>`;
+            return;
+        }
+
+        tarefasDia.forEach(t => {
+            const div = document.createElement("div");
+            div.className = `todo-item ${t.status}`;
+            div.innerHTML = `
+                <div class="todo-item-info">
+                    <h4>${t.titulo}</h4>
+                    <p>${t.descricao || 'Sem descrição.'}</p>
+                </div>
+                <div class="todo-actions">
+                    <button class="btn-success btn-action" onclick="alterarStatusTarefa(${t.id}, 'executado')">✓ Executado</button>
+                    <button class="btn-action" style="background-color: #f59e0b; color:#fff;" onclick="alterarStatusTarefa(${t.id}, 'pendente')">⚠ Pendente</button>
+                    <button class="btn-danger btn-action" onclick="removerTarefa(${t.id})">Excluir</button>
+                </div>
+            `;
+            lista.appendChild(div);
+        });
+    }
+
+    function adicionarTarefa(e) {
+        e.preventDefault();
+        const data = document.getElementById("agendaData").value;
+        const titulo = document.getElementById("agendaTitulo").value.trim();
+        const descricao = document.getElementById("agendaDescricao").value.trim();
+
+        if (!data || !titulo) return;
+        const novaTarefa = {
+            id: Date.now(),
+            data: data,
+            titulo: titulo,
+            descricao: descricao,
+            status: 'pendente',
+            usuarioResponsavel: usuarioLogadoNome // Salva a tarefa atrelada à conta dele
+        };
+        bancoDadosAgenda.push(novaTarefa);
+        localStorage.setItem('bancoDadosAgenda', JSON.stringify(bancoDadosAgenda));
+
+        document.getElementById("agendaTitulo").value = "";
+        document.getElementById("agendaDescricao").value = "";
+
+        renderizarAgenda();
+    }
+
+    function alterarStatusTarefa(id, status) {
+        bancoDadosAgenda = bancoDadosAgenda.map(t => {
+            if (t.id === id) t.status = status;
+            return t;
+        });
+        localStorage.setItem('bancoDadosAgenda', JSON.stringify(bancoDadosAgenda));
+        renderizarAgenda();
+    }
+
+    function removerTarefa(id) {
+        bancoDadosAgenda = bancoDadosAgenda.filter(t => t.id !== id);
+        localStorage.setItem('bancoDadosAgenda', JSON.stringify(bancoDadosAgenda));
+        renderizarAgenda();
+    }
+
+
+    /* ==========================================================================
+       LÓGICAS ADICIONAIS DO SISTEMA DE GESTÃO DE OBRAS
+       ========================================================================== */
     async function transmitirDadosParaNuvem() {
         if (["ver"].includes(usuarioAtualPermissoes)) return;
         try {
@@ -992,7 +1048,7 @@
         } catch (e) { console.error(e); }
     }
     async function salvarEAtualizarPelaPlanilha() { 
-        await transmitirDadosParaNuvem(); 
+        await transmitirDadosParaNuvem();
         alert("Sincronizado na Planilha com sucesso!"); 
         triggerAbasRender();
     }
@@ -1021,7 +1077,8 @@
     }
 
     function editarUsuario(username) {
-        const userObj = usuarios.find(u => u.user === username); if (!userObj) return;
+        const userObj = usuarios.find(u => u.user === username);
+        if (!userObj) return;
         const novaSenha = prompt("Nova senha:", userObj.pass); if (!novaSenha || !novaSenha.trim()) return;
         const novaPerm = prompt("Nova permissão (ver | ver,operar | gerente | admin):", userObj.perm);
         if (!["ver", "ver,operar", "gerente", "admin"].includes(novaPerm)) return alert("Permissão inválida.");
@@ -1033,7 +1090,7 @@
     function deletarUsuario(username) {
         if (username === "admin") return alert("Impossível deletar o administrador mestre.");
         if (confirm(`Excluir conta de ${username}?`)) { 
-            usuarios = usuarios.filter(u => u.user !== username); 
+            usuarios = usuarios.filter(u => u.user !== username);
             renderizarUsuarios(); 
             transmitirDadosParaNuvem();
         }
@@ -1044,7 +1101,7 @@
         if (!txtArea || !txtArea.value.trim()) return alert("Escreva uma mensagem antes de postar.");
         const obra = obras.find(o => o.id == obraId);
         if (obra) {
-            if (!obra.notesFeed) obra.notasFeed = [];
+            if (!obra.notasFeed) obra.notasFeed = [];
             obra.notasFeed.push({ id: gerarUUID(), usuario: usuarioLogadoNome, texto: txtArea.value.trim(), dataStamp: new Date().toLocaleString('pt-BR') });
             txtArea.value = ""; renderizarObras(); transmitirDadosParaNuvem();
         }
@@ -1072,10 +1129,12 @@
             
             divConfig.forEach(d => {
                 const andares = o.divisores[d.nome] || []; const mKey = btoa(unescape(encodeURIComponent(d.nome))); let htmlA = '';
+           
                 andares.forEach(andarObj => {
                     let htmlEqps = ''; const eqps = andarObj.equipamentos || [];
                     eqps.forEach(e => {
                         let controleInput = usuarioAtualPermissoes === "ver" ? "" : `<input type="range" min="0" max="100" value="${e.porcentagem}" oninput="atualizarPorcentagemEqObra('${o.id}','${d.nome}','${andarObj.id}','${e.id}',this.value)">`;
+    
                         htmlEqps += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div>• ${e.nome}</div><div><span id="lbl-${e.id}">${e.porcentagem}%</span></div></div>${controleInput}</div>`;
                     });
                     let formEqHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="inputEq-${o.id}-${mKey}-${andarObj.id}" placeholder="Equipamento..."><button onclick="adicionarEquipamentoObra('${o.id}','${d.nome}','${andarObj.id}')">+ Add</button></div>`;
@@ -1103,7 +1162,6 @@
                 </div>
                 <div class="nota-feed">${htmlFeed || '<p style="font-size:12px;color:#64748b;text-align:center;">Nenhum aviso registrado.</p>'}</div>
             </div>`;
-
             div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo"><div>${o.nome}</div>${btnDeleteObra}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}${blocoNotasHTML}</div>`;
             lista.appendChild(div);
         });
@@ -1145,7 +1203,6 @@
             if(contVencidas >= 2) div.style.border = "2px solid #ef4444";
             let alertaTxt = contVencidas >= 2 ? `<span style="background:#ef4444;color:white;padding:2px 6px;font-size:10px;border-radius:4px;font-weight:bold;margin-left:10px;">FÉRIAS ACUMULADAS</span>` : '';
             let btnDeleteColaborador = isAdminGerente ? `<button class="btn-danger" style="padding: 3px 8px; font-size: 11px;" onclick="deletarColaborador('${p.id}')">❌ Excluir</button>` : '';
-
             div.innerHTML = `
                 <div class="people-header-clickable" onclick="document.getElementById('feriasBox-${p.id}').classList.toggle('active')">
                     <div><h3>👤 ${p.nome} ${alertaTxt}</h3><p style="font-size:12px;color:#94a3b8;">Admissão: ${dtAdmissao.toLocaleDateString('pt-BR')}</p></div>
@@ -1168,9 +1225,7 @@
 
     function renderuzarPessoasEAtualizarDashboard() {
         renderizarPessoas();
-        if(document.getElementById("tab-dashboard").classList.contains("active")) {
-            renderizarDashboardGeral();
-        }
+        if(document.getElementById("tab-dashboard").classList.contains("active")) { renderizarDashboardGeral(); }
         transmitirDadosParaNuvem();
     }
 
@@ -1184,7 +1239,6 @@
         const container = document.getElementById('listaClientesManutencao'); container.innerHTML = '';
         const termo = document.getElementById("searchMaint").value.toLowerCase().trim();
         const isAdminGerente = ["master", "admin", "gerente"].includes(usuarioAtualPermissoes);
-
         clientesMaint.forEach(cli => {
             let matchC = cli.nome.toLowerCase().includes(termo); if(!matchC && termo !== "") return;
             const divCli = document.createElement('div'); divCli.className = 'client-card'; let htmlSistemas = '';
@@ -1218,15 +1272,14 @@
     function renderizarDashboardGeral() {
         if(!document.getElementById("tab-dashboard").classList.contains("active")) return;
 
-        document.getElementById("kpiObras").innerText = obras.length; 
+        document.getElementById("kpiObras").innerText = obras.length;
         document.getElementById("kpiPlantas").innerText = clientesMaint.length;
         
-        let totalAtivos = 0, conc = 0, pend = 0, alertasRH = 0; 
+        let totalAtivos = 0, conc = 0, pend = 0, alertasRH = 0;
         let nomesObras = [], valoresObras = [];
         
         obras.forEach(o => { nomesObras.push(o.nome); valoresObras.push(calcularTotalObra(o)); });
         clientesMaint.forEach(c => { if(c.sistemas) { Object.keys(c.sistemas).forEach(s => { c.sistemas[s].forEach(e => { totalAtivos++; if(e.status === "Concluído") conc++; else pend++; }); }); } });
-        
         colaboradores.forEach(p => {
             let dtAdmissao = new Date(p.admissao + 'T12:00:00'), hoje = new Date();
             let anos = (hoje - dtAdmissao) / (1000 * 60 * 60 * 24 * 365.25), appendetes = 0;
@@ -1235,7 +1288,7 @@
         });
         
         document.getElementById("kpiAtivos").innerText = totalAtivos;
-        const kpiRhElement = document.getElementById("kpiAlertasRH"); 
+        const kpiRhElement = document.getElementById("kpiAlertasRH");
         if(kpiRhElement) kpiRhElement.innerText = alertasRH;
         
         if(chartG1) chartG1.destroy(); 
@@ -1246,7 +1299,7 @@
     }
 
     function alternarAba(aba, b) { 
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); 
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); 
         document.getElementById(`tab-${aba}`).classList.add('active'); 
         b.classList.add('active'); 
@@ -1254,6 +1307,7 @@
         if(aba === 'dashboard') renderizarDashboardGeral();
         if(aba === 'obras') renderizarObras();
         if(aba === 'manutencao') renderizarMaint();
+        if(aba === 'minha-area') carregarDadosUsuarioLogado();
         if(aba === 'pessoas') renderizarPessoas();
         if(aba === 'usuarios') renderizarUsuarios();
     }
@@ -1262,7 +1316,9 @@
     function obterTodosEquipamentosMacro(listaAndares) { let eqps = []; if (listaAndares && Array.isArray(listaAndares)) { listaAndares.forEach(andar => { if (andar.equipamentos && Array.isArray(andar.equipamentos)) { eqps.push(...andar.equipamentos); } }); } return eqps; }
     
     function calcularTotalObra(o) { let total = 0; if(o.divisores) { divConfig.forEach(d => { total += calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) * d.peso; }); } return Math.round(total); }
-    function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) + '%'; }); const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%'; if(tG) tG.innerText = g + '%'; }
+    function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) + '%'; });
+        const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%';
+        if(tG) tG.innerText = g + '%'; }
     
     function criarObra() { if(usuarioAtualPermissoes === "ver") return; const input = document.getElementById('nomeObra'); if (!input.value.trim()) return; obras.push({ id: gerarUUID(), nome: input.value.trim(), notasFeed: [], divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } }); input.value = ''; renderizarObras(); transmitirDadosParaNuvem(); }
     function deletarObra(obraId) { if(window.event) window.event.stopPropagation(); if(confirm("Remover esta Obra permanentemente?")) { obras = obras.filter(o => o.id !== obraId); renderizarObras(); transmitirDadosParaNuvem(); } }
@@ -1279,3 +1335,5 @@
 </script>
 </body>
 </html>
+
+```
