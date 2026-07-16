@@ -33,19 +33,23 @@
         .search-bar-container { margin-bottom: 15px; }
         .search-input { width: 100%; padding: 10px 15px; background-color: #1e293b; border: 1px solid #334155; color: #fff; border-radius: 8px; font-size: 14px; }
 
-        /* Menu de abas deslizável no celular */
+        /* Menu de abas principal deslizável */
         .tab-menu { display: flex; justify-content: flex-start; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 15px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .tab-menu::-webkit-scrollbar { height: 4px; }
         .tab-menu::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
         .tab-btn { background: #1e293b; border: 1px solid #334155; color: #94a3b8; padding: 8px 16px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.2s; white-space: nowrap; font-size: 13px; }
         .tab-btn.active { background: #0284c7; color: white; border-color: #38bdf8; }
         
+        /* Menu de sub-abas (interno) para "Minhas Informações" */
+        .sub-tab-menu { display: flex; justify-content: flex-start; gap: 8px; margin-bottom: 20px; background: #0f172a; padding: 6px; border-radius: 8px; border: 1px solid #334155; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .sub-tab-btn { background: transparent; border: none; color: #94a3b8; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+        .sub-tab-btn.active { background: #334155; color: #38bdf8; }
+
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-
-        .sub-tab-menu { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px; background: #0f172a; padding: 6px; border-radius: 8px; border: 1px solid #334155; }
-        .sub-tab-btn { background: transparent; border: none; color: #94a3b8; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .sub-tab-btn.active { background: #334155; color: #38bdf8; }
+        
+        .sub-tab-content { display: none; }
+        .sub-tab-content.active { display: block; }
 
         .card { background: #1e293b; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 20px; border: 1px solid #334155; }
         h3 { font-size: 17px; margin-bottom: 12px; color: #f1f5f9; border-bottom: 2px solid #334155; padding-bottom: 6px; }
@@ -64,7 +68,6 @@
         .client-body.active { display: block; }
         
         .sys-box { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 15px; }
-        .sys-box .sys-header { font-weight: bold; color: #e5e7eb; font-size: 14px; margin-bottom: 10px; border-bottom: 1px dashed #4b5563; display: flex; justify-content: space-between; }
         
         .andar-container { background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
         .andar-header-title { font-size: 13px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
@@ -76,25 +79,20 @@
         .equip-row { background: #1e293b; padding: 10px; border: 1px solid #334155; border-radius: 6px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
         .equip-top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         .equip-name { font-weight: bold; color: #f1f5f9; }
-        .equip-inputs-grid { display: grid; grid-template-columns: 1fr; gap: 6px; width: 100%; }
-        @media(min-width: 500px) { .equip-inputs-grid { grid-template-columns: 120px 1fr; } }
         
         .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase; text-align: center; cursor: pointer; }
         .badge-ok { background: #15803d; color: #dcfce7; }
         .badge-pending { background: #b45309; color: #fef9c3; }
 
-        /* Tabela responsiva com rolagem lateral */
         .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 15px; }
         .user-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
         .user-table th, .user-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
         .user-table th { background: #0f172a; color: #38bdf8; }
         .user-table td button { padding: 5px 10px; font-size: 11px; margin-right: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
-        .agenda-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .agenda-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; min-width: 500px; }
         .agenda-table th, .agenda-table td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
         .agenda-table th { background: #0f172a; color: #38bdf8; font-weight: bold; }
-
-        .client-chart-container { background: #0f172a; border-radius: 8px; padding: 10px; margin-top: 15px; border: 1px solid #334155; height: 160px; position: relative; }
 
         .obra-item { background: #1e293b; border: 1px solid #334155; border-radius: 10px; margin-bottom: 15px; overflow: hidden; }
         .obra-header { background: #1e293b; padding: 12px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; cursor: pointer; user-select: none; }
@@ -107,7 +105,6 @@
         .divisao-macro { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 15px; }
         .divisao-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px dashed #4b5563; font-size: 14px; }
         .subdivisao-item { background: #111827; padding: 10px; border: 1px solid #374151; border-radius: 6px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
-        .subdivisao-info { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #f3f4f6; }
         
         .btn-danger { background-color: #dc2626; padding: 6px 12px; font-size: 12px; border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: bold; }
         .sub-form { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
@@ -115,15 +112,7 @@
         .sub-form button { padding: 8px 12px; font-size: 12px; background-color: #4b5563; color: #f3f4f6; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; }
         @media(min-width: 480px) { .sub-form button { width: auto; } }
         
-        .nota-feed { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; max-height: 250px; overflow-y: auto; background: #0f172a; padding: 10px; border-radius: 8px; border: 1px solid #334155; }
-        .nota-item { background: #1e293b; border-left: 4px solid #38bdf8; padding: 8px 12px; border-radius: 4px; display: flex; justify-content: space-between; align-items: flex-start; }
-        .nota-meta { font-size: 11px; color: #94a3b8; margin-top: 4px; }
-        .btn-del-msg { background: none; border: none; color: #f87171; cursor: pointer; font-size: 14px; }
-
         .people-card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; margin-bottom: 15px; padding: 12px; position: relative; }
-        .people-card.double-vacation-alert { border: 2px solid #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
-        .double-vacation-banner { background-color: #ef4444; color: white; padding: 4px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; display: inline-block; margin-bottom: 8px; text-transform: uppercase; }
-        .people-info-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #334155; padding-bottom: 10px; margin-bottom: 12px; }
         .people-header-clickable { display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; user-select: none; width: 100%; gap: 10px; }
         @media(min-width: 480px) { .people-header-clickable { flex-direction: row; align-items: center; } }
         .people-vacation-content { display: none; margin-top: 15px; border-top: 1px dashed #334155; padding-top: 10px; }
@@ -139,7 +128,6 @@
         .kpi-box { background: #1e293b; border: 1px solid #334155; padding: 12px; border-radius: 8px; text-align: center; font-size: 13px; }
         .kpi-val { font-size: 20px; font-weight: bold; color: #38bdf8; margin-top: 5px; }
 
-        /* Ajuste de formulários para celular */
         .form-row { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
         @media(min-width: 768px) { .form-row { display: flex; flex-direction: row; gap: 15px; flex-wrap: wrap; } }
         .form-row .form-group { flex: 1; min-width: 100%; margin-bottom: 0; }
@@ -191,13 +179,13 @@
         </div>
     </header>
 
-    <!-- Barra de Navegação Padrão - Deslizável horizontalmente no celular -->
+    <!-- Barra de Navegação Padrão -->
     <div class="tab-menu">
         <button class="tab-btn active" id="tabBtnDashboard" onclick="alternarAba('dashboard', this);">📊 Dashboard Geral</button>
         <button class="tab-btn" id="tabBtnObras" onclick="alternarAba('obras', this);">📁 Obras em Andamento</button>
         <button class="tab-btn" id="tabBtnManutencao" onclick="alternarAba('manutencao', this);">🔧 Planta de Manutenção &amp; PCM</button>
         <button class="tab-btn" id="tabBtnPessoas" onclick="alternarAba('pessoas', this);">👥 Gestão de Pessoas</button>
-        <button class="tab-btn" id="tabBtnReembolso" onclick="alternarAba('reembolso', this);">💵 Reembolso</button>
+        <button class="tab-btn" id="tabBtnMinhasInfo" onclick="alternarAba('minhas-info', this);">👤 Minhas Informações</button>
         <button class="tab-btn" id="tabBtnUsuarios" onclick="alternarAba('usuarios', this);">🔑 Gerenciar Usuários</button>
     </div>
 
@@ -259,61 +247,140 @@
         <div id="containerListaPessoas"></div>
     </div>
 
-    <!-- ABA: REEMBOLSO -->
-    <div id="tab-reembolso" class="tab-content">
-        <div class="card">
-            <h3>💵 Solicitação de Reembolso de Despesas</h3>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Nome do Colaborador</label>
-                    <input type="text" id="reembolsoNomeColaborador" placeholder="Digite seu nome completo">
-                </div>
-                <div class="form-group">
-                    <label>Nome da Obra</label>
-                    <input type="text" id="reembolsoNomeObra" placeholder="Digite o nome da obra relacionada">
-                </div>
-                <div class="form-group">
-                    <label>Data de Solicitação</label>
-                    <input type="date" id="reembolsoData">
-                </div>
-            </div>
-            
-            <h4 style="color:#38bdf8; font-size:15px; margin-bottom:12px; margin-top: 20px;">Informações Bancárias para Pagamento</h4>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Banco</label>
-                    <input type="text" id="reembolsoBanco" placeholder="Ex: Banco do Brasil">
-                </div>
-                <div class="form-group">
-                    <label>Agência</label>
-                    <input type="text" id="reembolsoAgencia" placeholder="Ex: 0001">
-                </div>
-                <div class="form-group">
-                    <label>Conta</label>
-                    <input type="text" id="reembolsoConta" placeholder="Ex: 12345-6">
-                </div>
-                <div class="form-group">
-                    <label>Chave PIX (Opcional)</label>
-                    <input type="text" id="reembolsoPix" placeholder="E-mail, CPF, celular ou aleatória">
-                </div>
-            </div>
+    <!-- ABA: MINHAS INFORMAÇÕES (Agrupa Agenda, Reembolso e Folha de Ponto) -->
+    <div id="tab-minhas-info" class="tab-content">
+        <!-- Sub-Menu de navegação interna -->
+        <div class="sub-tab-menu">
+            <button class="sub-tab-btn active" id="subTabBtnAgenda" onclick="alternarSubAba('agenda', this)">📅 Minha Agenda</button>
+            <button class="sub-tab-btn" id="subTabBtnReembolso" onclick="alternarSubAba('reembolso', this)">💵 Solicitar Reembolso</button>
+            <button class="sub-tab-btn" id="subTabBtnPonto" onclick="alternarSubAba('ponto', this)">📝 Folha de Ponto</button>
+        </div>
 
-            <h4 style="color:#38bdf8; font-size:15px; margin-bottom:12px; margin-top: 20px;">Detalhes das Despesas</h4>
-            <div class="form-row">
-                <div class="form-group" style="flex: 2;">
-                    <label>Descrição do Item / Despesa</label>
-                    <input type="text" id="reembolsoDescItem" placeholder="Ex: Combustível, Estacionamento, Material extra...">
-                </div>
-                <div class="form-group" style="flex: 1;">
-                    <label>Valor da Despesa (R$)</label>
-                    <input type="number" step="0.01" id="reembolsoValor" placeholder="Deixe vago ou preencha o valor">
+        <!-- SUB-ABA: AGENDA -->
+        <div id="subtab-agenda" class="sub-tab-content active">
+            <div class="card">
+                <h3>📅 Agenda Pessoal de Atividades</h3>
+                <div class="table-responsive">
+                    <table class="agenda-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Atividade / Tarefa</th>
+                                <th>Local / Obra</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>16/07/2026</td>
+                                <td>Lógica e Configuração de Controladora DDC</td>
+                                <td>Shopping BMS</td>
+                                <td><span class="badge badge-pending">Em Andamento</span></td>
+                            </tr>
+                            <tr>
+                                <td>17/07/2026</td>
+                                <td>Comissionamento e Teste de Cabos</td>
+                                <td>Hospital Geral</td>
+                                <td><span class="badge badge-pending">Pendente</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-            <div class="form-group">
-                <label>Justificativa / Observações</label>
-                <textarea id="reembolsoObs" rows="3" placeholder="Insira detalhes adicionais sobre a despesa caso necessário"></textarea>
+        </div>
+
+        <!-- SUB-ABA: REEMBOLSO -->
+        <div id="subtab-reembolso" class="sub-tab-content">
+            <div class="card">
+                <h3>💵 Solicitação de Reembolso de Despesas</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nome do Colaborador</label>
+                        <input type="text" id="reembolsoNomeColaborador" placeholder="Digite seu nome completo">
+                    </div>
+                    <div class="form-group">
+                        <label>Nome da Obra</label>
+                        <input type="text" id="reembolsoNomeObra" placeholder="Digite o nome da obra relacionada">
+                    </div>
+                    <div class="form-group">
+                        <label>Data de Solicitação</label>
+                        <input type="date" id="reembolsoData">
+                    </div>
+                </div>
+                
+                <h4 style="color:#38bdf8; font-size:15px; margin-bottom:12px; margin-top: 20px;">Informações Bancárias para Pagamento</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Banco</label>
+                        <input type="text" id="reembolsoBanco" placeholder="Ex: Banco do Brasil">
+                    </div>
+                    <div class="form-group">
+                        <label>Agência</label>
+                        <input type="text" id="reembolsoAgencia" placeholder="Ex: 0001">
+                    </div>
+                    <div class="form-group">
+                        <label>Conta</label>
+                        <input type="text" id="reembolsoConta" placeholder="Ex: 12345-6">
+                    </div>
+                    <div class="form-group">
+                        <label>Chave PIX (Opcional)</label>
+                        <input type="text" id="reembolsoPix" placeholder="E-mail, CPF, celular ou aleatória">
+                    </div>
+                </div>
+
+                <h4 style="color:#38bdf8; font-size:15px; margin-bottom:12px; margin-top: 20px;">Detalhes das Despesas</h4>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2;">
+                        <label>Descrição do Item / Despesa</label>
+                        <input type="text" id="reembolsoDescItem" placeholder="Ex: Combustível, Estacionamento, Material extra...">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Valor da Despesa (R$)</label>
+                        <input type="number" step="0.01" id="reembolsoValor" placeholder="Deixe vago ou preencha o valor">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Justificativa / Observações</label>
+                    <textarea id="reembolsoObs" rows="3" placeholder="Insira detalhes adicionais sobre a despesa caso necessário"></textarea>
+                </div>
+                <button onclick="window.print()" style="background:#16a34a; color:white; padding:12px 20px; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; width: 100%;">🖨️ Gerar PDF / Imprimir Reembolso</button>
             </div>
-            <button onclick="window.print()" style="background:#16a34a; color:white; padding:12px 20px; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; width: 100%;">🖨️ Gerar PDF / Imprimir Reembolso</button>
+        </div>
+
+        <!-- SUB-ABA: FOLHA DE PONTO -->
+        <div id="subtab-ponto" class="sub-tab-content">
+            <div class="card">
+                <h3>📝 Registro de Ponto Digital</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Colaborador</label>
+                        <input type="text" id="pontoNome" placeholder="Seu nome">
+                    </div>
+                    <div class="form-group">
+                        <label>Data do Registro</label>
+                        <input type="date" id="pontoData">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Entrada (Manhã)</label>
+                        <input type="text" placeholder="08:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Saída (Almoço)</label>
+                        <input type="text" placeholder="12:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Entrada (Tarde)</label>
+                        <input type="text" placeholder="13:00">
+                    </div>
+                    <div class="form-group">
+                        <label>Saída (Fim de Expediente)</label>
+                        <input type="text" placeholder="17:00">
+                    </div>
+                </div>
+                <button onclick="alert('Ponto registrado com sucesso!')" style="background:#0284c7; color:white; padding:12px 20px; border:none; border-radius:8px; font-weight:bold; font-size:14px; cursor:pointer; width: 100%;">💾 Registrar Horários</button>
+            </div>
         </div>
     </div>
 
@@ -729,6 +796,14 @@
         if(aba === 'manutencao') renderizarMaint();
         if(aba === 'pessoas') renderizarPessoas();
         if(aba === 'usuarios') renderizarUsuarios();
+    }
+
+    // Função de alternância das sub-abas internas de "Minhas Informações"
+    function alternarSubAba(subAba, btn) {
+        document.querySelectorAll('#tab-minhas-info .sub-tab-content').forEach(content => content.classList.remove('active'));
+        document.querySelectorAll('#tab-minhas-info .sub-tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`subtab-${subAba}`).classList.add('active');
+        btn.classList.add('active');
     }
     
     function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
