@@ -521,6 +521,7 @@
     
     function gerarUUID() { return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); }
 
+    /* CORREÇÃO ROBUSTA DA AUTENTICAÇÃO COM TRATAMENTO DE REQUISITOS E CORS */
     async function checarLogin() {
         const u = document.getElementById("userInput").value.trim();
         const p = document.getElementById("passInput").value.trim();
@@ -613,6 +614,7 @@
         atualizarTela();
     }
 
+    /* REDEFINIÇÃO DOS ARRAYS LOCAIS ANTES DO CONCEITO PARA EVITAR DUPLICAÇÃO EM MASSA */
     async function carregarDadosDaNuvem() {
         try {
             let reply = await fetch(URL_GOOGLE_API + "?acao=lerDados");
@@ -770,17 +772,6 @@
         html2pdf().set({ margin: 10, filename: `Relatorio_Reembolso_${colaborador}_${obra}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(f).save().then(() => f.remove());
     }
 
-    function verificarSeEhFeriado(dataObj) {
-        const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
-        const dia = String(dataObj.getDate()).padStart(2, '0');
-        return feriadosFixos.includes(`${mes}-${dia}`);
-    }
-
-    function gerarPeriodoFechamento() {
-        const hoje = new Date(); const anoAtual = hoje.getFullYear(); const mesAtual = hoje.getMonth(); 
-        return { dataInicio: new Date(anoAtual, mesAtual - 1, 20), dataFim: new Date(anoAtual, mesAtual, 20) };
-    }
-
     function renderizarFolhaPonto() {
         const { dataInicio, dataFim } = gerarPeriodoFechamento();
         const corpoPonto = document.getElementById("corpoPonto"); corpoPonto.innerHTML = "";
@@ -790,16 +781,10 @@
         while (atual <= dataFim) {
             const dataIso = atual.toISOString().split('T')[0]; const diaSemanaNum = atual.getDay();
             const destacarDia = (diaSemanaNum === 0 || diaSemanaNum === 6 || verificarSeEhFeriado(atual));
-            
-            const defaultEnt1 = destacarDia ? "" : "07:00"; const defaultSai1 = destacarDia ? "" : "12:00";
-            const defaultEnt2 = destacarDia ? "" : "13:00"; const defaultSai2 = destacarDia ? "" : "17:00";
-            const defaultObs = verificarSeEhFeriado(atual) ? "Feriado Nacional" : "";
+            const dadosDia = bancoDadosPonto[`${usuarioLogadoNome}_${dataIso}`] || { ent1: destacarDia?"":"07:00", sai1: destacarDia?"":"12:00", ent2: destacarDia?"":"13:00", sai2: destacarDia?"":"17:00", obs: verificarSeEhFeriado(atual)?"Feriado Nacional":"" };
 
-            const chave = `${usuarioLogadoNome}_${dataIso}`;
-            const dadosDia = bancoDadosPonto[chave] || { ent1: defaultEnt1, sai1: defaultSai1, ent2: defaultEnt2, sai2: defaultSai2, obs: defaultObs };
-
-            const tr = document.createElement("tr"); if (destacarDia) { tr.className = "weekend-row"; }
-            tr.innerHTML = `<td><strong>${atual.toLocaleDateString('pt-BR')} (${diasSemana[diaSemanaNum]})</strong></td><td><input type="time" id="ent1-${dataIso}" value="${dadosDia.ent1}"></td><td><input type="time" id="sai1-${dataIso}" value="${dadosDia.sai1}"></td><td><input type="time" id="ent2-${dataIso}" value="${dadosDia.ent2}"></td><td><input type="time" id="sai2-${dataIso}" value="${dadosDia.sai2}"></td><td><input type="text" id="obs-${dataIso}" placeholder="Observação..." value="${dadosDia.obs}"></td>`;
+            const tr = document.createElement("tr"); if (destacarDia) tr.className = "weekend-row";
+            tr.innerHTML = `<td><strong>${atual.toLocaleDateString('pt-BR')} (${diasSemana[diaSemanaNum]})</strong></td><td><input type="time" id="ent1-${dataIso}" value="${dadosDia.ent1}"></td><td><input type="time" id="sai1-${dataIso}" value="${dadosDia.sai1}"></td><td><input type="time" id="ent2-${dataIso}" value="${dadosDia.ent2}"></td><td><input type="time" id="sai2-${dataIso}" value="${dadosDia.sai2}"></td><td><input type="text" id="obs-${dataIso}" value="${dadosDia.obs}"></td>`;
             corpoPonto.appendChild(tr); atual.setDate(atual.getDate() + 1);
         }
     }
@@ -829,7 +814,6 @@
     function adicionarTarefa(e) {
         e.preventDefault(); const data = document.getElementById("agendaData").value, titulo = document.getElementById("agendaTitulo").value.trim(), descricao = document.getElementById("agendaDescricao").value.trim();
         if (!data || !titulo) return;
-
         bancoDadosAgenda.push({ id: Date.now(), data, titulo, descricao, status: 'pendente', usuarioResponsavel: usuarioLogadoNome });
         localStorage.setItem('bancoDadosAgenda', JSON.stringify(bancoDadosAgenda));
         document.getElementById("agendaTitulo").value = ""; document.getElementById("agendaDescricao").value = "";
@@ -852,7 +836,7 @@
     function criarObra() {
         if(usuarioAtualPermissoes === "ver") return;
         const input = document.getElementById('nomeObra'); const nome = input.value.trim(); if (!nome) return;
-        if (obras.some(o => o.nome.toLowerCase() === nome.toLowerCase())) return alert("Erro: Essa obra já está cadastrada!");
+        if (obras.some(o => o.nome.toLowerCase() === nome.toLowerCase())) return alert("Erro: Essa obra já existe!");
 
         obras.push({ id: gerarUUID(), nome, notasFeed: [], divisores: { 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] } });
         input.value = ''; renderizarObras(); transmitirDadosParaNuvem();
@@ -879,31 +863,6 @@
         }
     }
 
-    function adicionarEquipamento(cliId, sysNome) {
-        if(window.event) window.event.stopPropagation(); if(usuarioAtualPermissoes === "ver") return;
-        const key = btoa(unescape(encodeURIComponent(sysNome))), inputAndar = document.getElementById(`eqAndar-${cliId}-${key}`), inputNome = document.getElementById(`eqNome-${cliId}-${key}`);
-        if (!inputNome.value.trim()) return;
-        const cli = clientesMaint.find(c => c.id == cliId);
-        if (cli) {
-            if (!cli.sistemas[sysNome]) cli.sistemas[sysNome] = [];
-            cli.sistemas[sysNome].push({ id: gerarUUID(), nome: inputNome.value.trim(), tag: 'TAG', status: 'Pendente', tipo: 'Preventiva', andar: inputAndar.value.trim() || 'Geral', logs: [] });
-            inputNome.value = ''; renderizarMaint(); transmitirDadosParaNuvem();
-        }
-    }
-
-    function ArrayAgruparPor(array, chave) { return array.reduce((acc, item) => { const group = item[chave] || "Geral"; if (!acc[group]) acc[group] = []; acc[group].push(item); return acc; }, {}); }
-    function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + b.porcentagem, 0) / lista.length) : 0; }
-    function obterTodosEquipamentosMacro(listaAndares) { let eqps = []; if (listaAndares && Array.isArray(listaAndares)) { listaAndares.forEach(andar => { if (andar.equipamentos && Array.isArray(andar.equipamentos)) { eqps.push(...andar.equipamentos); } }); } return eqps; }
-    function calcularTotalObra(o) { let total = 0; if(o.divisores) { divConfig.forEach(d => { total += calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) * d.peso; }); } return Math.round(total); }
-    function recarculaValoresObra(o) { divConfig.forEach(d => { let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`); if(el) el.innerText = calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) + '%'; }); const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%'; if(tG) tG.innerText = g + '%'; }
-    function deletarObra(obraId) { if(confirm("Remover esta Obra permanentemente?")) { obras = obras.filter(o => o.id !== obraId); renderizarObras(); transmitirDadosParaNuvem(); } }
-    function adicionarAndarObra(obraId, macro) { if(usuarioAtualPermissoes === "ver") return; const key = btoa(unescape(encodeURIComponent(macro))), input = document.getElementById(`inputAndar-${obraId}-${key}`); if(!input || !input.value.trim()) return; const obra = obras.find(o => o.id == obraId); if(obra) { if(!obra.divisores[macro]) obra.divisores[macro] = []; obra.divisores[macro].push({ id: gerarUUID(), andar: input.value.trim(), equipamentos: [] }); input.value = ''; renderizarObras(); transmitirDadosParaNuvem(); } }
-    function adicionarEquipamentoObra(obraId, macro, andarId) { if(usuarioAtualPermissoes === "ver") return; const key = btoa(unescape(encodeURIComponent(macro))), inputEq = document.getElementById(`inputEq-${obraId}-${key}-${andarId}`); if(!inputEq || !inputEq.value.trim()) return; const obra = obras.find(o => o.id == obraId); if(obra) { const andarObj = obra.divisores[macro].find(a => a.id == andarId); if(andarObj) { if (!andarObj.equipamentos) andarObj.equipamentos = []; andarObj.equipamentos.push({ id: gerarUUID(), nome: inputEq.value.trim(), porcentagem: 0 }); inputEq.value = ''; renderizarObras(); transmitirDadosParaNuvem(); } } }
-    function atualizarPorcentagemEqObra(obraId, macro, andarId, eqId, val) { if(usuarioAtualPermissoes === "ver") return; const obra = obras.find(o => o.id == obraId); if (obra) { const andarObj = obra.divisores[macro].find(a => a.id == andarId); if(andarObj) { const eq = andarObj.equipamentos.find(e => e.id == eqId); if (eq) { eq.porcentagem = parseInt(val); document.getElementById(`lbl-${eqId}`).innerText = val + '%'; recarculaValoresObra(obra); transmitirDadosParaNuvem(); } } } }
-    function deletarClienteManutencao(cliId) { if(confirm("Excluir este Contrato?")) { clientesMaint = clientesMaint.filter(c => c.id !== cliId); renderizarMaint(); transmitirDadosParaNuvem(); } }
-    function criarColaborador() { if(usuarioAtualPermissoes === "ver") return; const nome = document.getElementById('pNome').value.trim(), admissao = document.getElementById('pAdmissao').value; if(!nome || !admissao) return alert("Campos obrigatórios."); colaboradores.push({ id: gerarUUID(), nome, admissao, historicoFerias: {} }); renderizarPessoas(); transmitirDadosParaNuvem(); }
-    function atualizarApontamentoFerias(colabId, anoPeriodo, campo, valor) { if(usuarioAtualPermissoes === "ver") return; const c = colaboradores.find(p => p.id === colabId); if(c) { if(!c.historicoFerias) c.historicoFerias = {}; if(!c.historicoFerias[anoPeriodo]) c.historicoFerias[anoPeriodo] = { fInicio: '', fFim: '', status: 'Pendente' }; c.historicoFerias[anoPeriodo][campo] = valor; transmitirDadosParaNuvem(); } }
-
     async function transmitirDadosParaNuvem() {
         if (["ver"].includes(usuarioAtualPermissoes)) return;
         try {
@@ -912,46 +871,8 @@
             await fetch(URL_GOOGLE_API, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: formData.toString() });
         } catch (e) { console.error(e); }
     }
-    
-    /* CORREÇÃO: Força o recarregamento limpo e renderização imediata na tela após salvar na planilha */
-    async function salvarEAtualizarPelaPlanilha() { 
-        await transmitirDadosParaNuvem(); 
-        alert("Sincronizado na Planilha com sucesso!"); 
-        await carregarDadosDaNuvem(); 
-    }
+    async function salvarEAtualizarPelaPlanilha() { await transmitirDadosParaNuvem(); alert("Sincronizado na Planilha com sucesso!"); carregarDadosDaNuvem(); }
     async function salvarEAtualizarPelaPlanilhaSilencioso() { await transmitirDadosParaNuvem(); }
-
-    /* CORREÇÃO: Garante a renderização sem filtros invisíveis que quebravam a listagem */
-    function renderizarObras() {
-        if (!document.getElementById("tab-obras").classList.contains("active")) return;
-        const lista = document.getElementById('listaObras'); lista.innerHTML = '';
-        const termo = document.getElementById("searchObras").value.toLowerCase().trim();
-
-        obras.filter(o => o.nome.toLowerCase().includes(termo)).forEach(o => {
-            const glob = calcularTotalObra(o); const div = document.createElement('div'); div.className = 'obra-item'; let htmlM = '';
-            
-            divConfig.forEach(d => {
-                const andares = (o.divisores && o.divisores[d.nome]) ? o.divisores[d.nome] : []; 
-                const mKey = btoa(unescape(encodeURIComponent(d.nome))); let htmlA = '';
-                
-                andares.forEach(andarObj => {
-                    let htmlEqps = ''; const eqps = andarObj.equipamentos || [];
-                    eqps.forEach(e => {
-                        let controleInput = usuarioAtualPermissoes === "ver" ? "" : `<input type="range" min="0" max="100" value="${e.porcentagem}" oninput="atualizarPorcentagemEqObra('${o.id}','${d.nome}','${andarObj.id}','${e.id}',this.value)">`;
-                        htmlEqps += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div>• ${e.nome}</div><div><span id="lbl-${e.id}">${e.porcentagem}%</span></div></div>${controleInput}</div>`;
-                    });
-                    let formEqHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="inputEq-${o.id}-${mKey}-${andarObj.id}" placeholder="Equipamento..."><button onclick="adicionarEquipamentoObra('${o.id}','${d.nome}','${andarObj.id}')">+ Add</button></div>`;
-                    htmlA += `<div class="andar-container" onclick="event.stopPropagation()"><div class="andar-header-title">📍 Setor/Andar: ${andarObj.andar}</div><div>${htmlEqps || '<p style="font-size:11px;color:#64748b;">Vazio</p>'}</div>${formEqHTML}</div>`;
-                });
-                let formAddAndarHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="inputAndar-${o.id}-${mKey}" placeholder="Setor..."><button onclick="adicionarAndarObra('${o.id}','${d.nome}')">+ Setor</button></div>`;
-                htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(obterTodosEquipamentosMacro(andares))}%</span></div></div><div>${htmlA || '<p style="font-size:11px;color:#64748b;">Nenhum Setor.</p>'}</div>${formAddAndarHTML}</div>`;
-            });
-
-            let btnDeleteObra = ["master", "admin", "gerente"].includes(usuarioAtualPermissoes) ? `<button class="btn-danger" onclick="deletarObra('${o.id}')">❌ Excluir Obra</button>` : '';
-            div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo"><div>${o.nome}</div>${btnDeleteObra}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}</div>`;
-            lista.appendChild(div);
-        });
-    }
 
     function renderizarUsuarios() {
         if (!document.getElementById("tab-usuarios").classList.contains("active")) return;
@@ -960,6 +881,42 @@
             let row = document.createElement("tr");
             row.innerHTML = `<td><strong>${usr.user}</strong></td><td><span style="color: #38bdf8; text-transform: uppercase;">${usr.perm}</span></td><td><button onclick="editarUsuario('${usr.user}')" style="background: #2563eb; color: white;">✏️ Editar</button><button onclick="deletarUsuario('${usr.user}')" style="background: #dc2626; color: white;">❌ Remover</button></td>`;
             corpo.appendChild(row);
+        });
+    }
+
+    function editarUsuario(username) {
+        const userObj = usuarios.find(u => u.user === username); if (!userObj) return;
+        const novaSenha = prompt("Nova senha:", userObj.pass); if (!novaSenha || !novaSenha.trim()) return;
+        const novaPerm = prompt("Nova permissão (ver | ver,operar | gerente | admin):", userObj.perm);
+        if (!["ver", "ver,operar", "gerente", "admin"].includes(novaPerm)) return alert("Permissão inválida.");
+        userObj.pass = novaSenha.trim(); userObj.perm = novaPerm.trim();
+        renderizarUsuarios(); transmitirDadosParaNuvem();
+    }
+    function deletarUsuario(username) { if (username === "admin") return alert("Impossível deletar o master."); if (confirm(`Excluir conta de ${username}?`)) { usuarios = usuarios.filter(u => u.user !== username); renderizarUsuarios(); transmitirDadosParaNuvem(); } }
+
+    function renderizarObras() {
+        if (!document.getElementById("tab-obras").classList.contains("active")) return;
+        const lista = document.getElementById('listaObras'); lista.innerHTML = '';
+        const termo = document.getElementById("searchObras").value.toLowerCase().trim();
+
+        obras.filter(o => o.nome.toLowerCase().includes(termo)).forEach(o => {
+            const glob = calcularTotalObra(o); const div = document.createElement('div'); div.className = 'obra-item'; let htmlM = '';
+            divConfig.forEach(d => {
+                const andares = o.divisores[d.nome] || []; const mKey = btoa(unescape(encodeURIComponent(d.nome))); let htmlA = '';
+                andares.forEach(andarObj => {
+                    let htmlEqps = ''; (andarObj.equipamentos || []).forEach(e => {
+                        let controleInput = usuarioAtualPermissoes === "ver" ? "" : `<input type="range" min="0" max="100" value="${e.porcentagem}" oninput="atualizarPorcentagemEqObra('${o.id}','${d.nome}','${andarObj.id}','${e.id}',this.value)">`;
+                        htmlEqps += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div>• ${e.nome}</div><div><span id="lbl-${e.id}">${e.porcentagem}%</span></div></div>${controleInput}</div>`;
+                    });
+                    let formEqHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="inputEq-${o.id}-${mKey}-${andarObj.id}" placeholder="Equipamento..."><button onclick="adicionarEquipamentoObra('${o.id}','${d.nome}','${andarObj.id}')">+ Add</button></div>`;
+                    htmlA += `<div class="andar-container" onclick="event.stopPropagation()"><div class="andar-header-title">📍 Setor/Andar: ${andarObj.andar}</div><div>${htmlEqps || 'Vazio'}</div>${formEqHTML}</div>`;
+                });
+                let formAddAndarHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="inputAndar-${o.id}-${mKey}" placeholder="Setor..."><button onclick="adicionarAndarObra('${o.id}','${d.nome}')">+ Setor</button></div>`;
+                htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(obterTodosEquipamentosMacro(andares))}%</span></div></div><div>${htmlA || 'Nenhum Setor.'}</div>${formAddAndarHTML}</div>`;
+            });
+            let btnDeleteObra = ["master", "admin", "gerente"].includes(usuarioAtualPermissoes) ? `<button class="btn-danger" onclick="deletarObra('${o.id}')">❌ Excluir Obra</button>` : '';
+            div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo"><div>${o.nome}</div>${btnDeleteObra}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}</div>`;
+            lista.appendChild(div);
         });
     }
 
@@ -992,7 +949,7 @@
                     htmlSistemas += `<div class="sys-box"><div>❄️ Sistema: ${sysNome}</div>${formAddHTML}</div>`;
                 });
             }
-            let formAddSys = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="addSys-${cli.id}" placeholder="Sistema..."><button onclick="adicionarSistema('${cli.id}')">+</button></div>`;
+            let formAddSys = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" onclick="event.stopPropagation()"><input type="text" id="addSys-${cli.id}" placeholder="Sistema..."><button onclick="adicionarSistema('${cli.id}')">+</button></div>`;
             let btnDeleteCliente = ["master", "admin", "gerente"].includes(usuarioAtualPermissoes) ? `<button class="btn-danger" style="font-size:11px;padding:3px 8px;" onclick="deletarClienteManutencao('${cli.id}')">❌ Excluir Contrato</button>` : '';
             divCli.innerHTML = `<div class="client-header" onclick="document.getElementById('cliCorpo-${cli.id}').classList.toggle('active')"><div class="client-title"><span>🏢 Planta: ${cli.nome}</span>${btnDeleteCliente}</div></div><div class="client-body" id="cliCorpo-${cli.id}">${formAddSys}${htmlSistemas}</div>`;
             container.appendChild(divCli);
@@ -1006,6 +963,15 @@
         let totalAtivos = 0; clientesMaint.forEach(c => { if(c.sistemas) { Object.keys(c.sistemas).forEach(s => totalAtivos += c.sistemas[s].length); } });
         document.getElementById("kpiAtivos").innerText = totalAtivos;
     }
+
+    function alternarAba(aba, b) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); 
+        document.getElementById(`tab-${aba}`).classList.add('active'); b.classList.add('active');
+        triggerAbasRender();
+    }
+    function deletarColaborador(id) { if(confirm("Deseja realmente remover?")) { colaboradores = colaboradores.filter(p => p.id !== id); renderuzarPessoasEAtualizarDashboard(); } }
+    function adicionarEquipamento(cliId, sysNome) { if(usuarioAtualPermissoes === "ver") return; const key = btoa(unescape(encodeURIComponent(sysNome))), inputAndar = document.getElementById(`eqAndar-${cliId}-${key}`), inputNome = document.getElementById(`eqNome-${cliId}-${key}`); if (!inputNome.value.trim()) return; const cli = clientesMaint.find(c => c.id == cliId); if (cli) { if (!cli.sistemas[sysNome]) cli.sistemas[sysNome] = []; cli.sistemas[sysNome].push({ id: gerarUUID(), nome: inputNome.value.trim(), tag: 'TAG', status: 'Pendente', tipo: 'Preventiva', andar: inputAndar.value.trim() || 'Geral', logs: [] }); inputNome.value = ''; renderizarMaint(); transmitirDadosParaNuvem(); } }
 </script>
 </body>
 </html>
