@@ -66,7 +66,9 @@
         .sys-box .sys-header { font-weight: bold; color: #e5e7eb; font-size: 14px; margin-bottom: 10px; border-bottom: 1px dashed #4b5563; display: flex; justify-content: space-between; }
         
         .andar-container { background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
-        .andar-header-title { font-size: 13px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
+        .andar-header-title { font-size: 13px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+        .andar-body { display: none; margin-top: 10px; }
+        .andar-body.active { display: block; }
 
         .maint-section-title { font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin: 6px 0 4px 0; display: flex; align-items: center; gap: 4px; }
         .maint-section-title.preventiva { color: #10b981; }
@@ -122,8 +124,12 @@
         .progress-text { position: absolute; width: 100%; top: 0; left: 0; font-size: 12px; font-weight: bold; color: #ffffff; line-height: 20px; }
         .obra-corpo { padding: 20px; display: none; background: #111827; }
         .obra-corpo.active { display: block; }
-        .divisao-macro { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        .divisao-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px dashed #4b5563; }
+        
+        .divisao-macro { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 15px; }
+        .divisao-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; font-weight: bold; color: #f8fafc; }
+        .divisao-corpo { display: none; margin-top: 12px; border-top: 1px dashed #4b5563; padding-top: 12px; }
+        .divisao-corpo.active { display: block; }
+
         .subdivisao-item { background: #111827; padding: 10px; border: 1px solid #374151; border-radius: 6px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
         .subdivisao-info { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #f3f4f6; }
         
@@ -1096,13 +1102,13 @@
                     });
                     
                     let btnDeleteAndar = isAdmin ? `<button class="btn-danger" style="padding:2px 6px; font-size:11px;" onclick="deletarAndarObra('${o.id}','${d.nome}','${andarObj.id}')">❌ Excluir Setor</button>` : '';
-                    let formEqHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="inputEq-${o.id}-${mKey}-${andarObj.id}" placeholder="Equipamentos (ex: Eq1, Eq2, Eq3)..."><button onclick="adicionarEquipamentoObra('${o.id}','${d.nome}','${andarObj.id}')">+ Add Lote</button></div>`;
+                    let formEqHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" onclick="event.stopPropagation()"><input type="text" id="inputEq-${o.id}-${mKey}-${andarObj.id}" placeholder="Equipamentos (ex: Eq1, Eq2, Eq3)..."><button onclick="adicionarEquipamentoObra('${o.id}','${d.nome}','${andarObj.id}')">+ Add Lote</button></div>`;
                     
-                    htmlA += `<div class="andar-container" onclick="event.stopPropagation()"><div class="andar-header-title"><span>📍 Setor/Andar: ${andarObj.andar}</span>${btnDeleteAndar}</div><div>${htmlEqps || '<p style="font-size:11px;color:#64748b;">Vazio</p>'}</div>${formEqHTML}</div>`;
+                    htmlA += `<div class="andar-container" onclick="event.stopPropagation()"><div class="andar-header-title" onclick="document.getElementById('andarBody-${o.id}-${mKey}-${andarObj.id}').classList.toggle('active')"><span>📍 Setor/Andar: ${andarObj.andar} ▾</span>${btnDeleteAndar}</div><div class="andar-body" id="andarBody-${o.id}-${mKey}-${andarObj.id}">${htmlEqps || '<p style="font-size:11px;color:#64748b;">Vazio</p>'}${formEqHTML}</div></div>`;
                 });
                 
-                let formAddAndarHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="inputAndar-${o.id}-${mKey}" placeholder="Setores (ex: 1º Andar, 2º Andar, Térreo)..."><button onclick="adicionarAndarObra('${o.id}','${d.nome}')">+ Setor Lote</button></div>`;
-                htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(obterTodosEquipamentosMacro(andares))}%</span></div></div><div>${htmlA || '<p style="font-size:11px;color:#64748b;">Nenhum Setor.</p>'}</div>${formAddAndarHTML}</div>`;
+                let formAddAndarHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form" onclick="event.stopPropagation()"><input type="text" id="inputAndar-${o.id}-${mKey}" placeholder="Setores (ex: 1º Andar, 2º Andar, Térreo)..."><button onclick="adicionarAndarObra('${o.id}','${d.nome}')">+ Setor Lote</button></div>`;
+                htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header" onclick="document.getElementById('macroBody-${o.id}-${mKey}').classList.toggle('active')"><div>📁 ${d.nome} ▾</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(obterTodosEquipamentosMacro(andares))}%</span></div></div><div class="divisao-corpo" id="macroBody-${o.id}-${mKey}">${htmlA || '<p style="font-size:11px;color:#64748b;">Nenhum Setor.</p>'}${formAddAndarHTML}</div></div>`;
             });
 
             let btnDeleteObra = isAdminGerente ? `<button class="btn-danger" onclick="deletarObra('${o.id}')">❌ Excluir Obra</button>` : '';
@@ -1123,7 +1129,7 @@
                 </div>
                 <div class="nota-feed">${htmlFeed || '<p style="font-size:12px;color:#64748b;text-align:center;">Nenhum aviso registrado.</p>'}</div>
             </div>`;
-            div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo"><div>${o.nome}</div>${btnDeleteObra}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}${blocoNotasHTML}</div>`;
+            div.innerHTML = `<div class="obra-header" onclick="document.getElementById('corpo-${o.id}').classList.toggle('active')"><div class="obra-titulo"><div>🏢 ${o.nome}</div>${btnDeleteObra}</div><div class="progress-container"><div class="progress-bar" id="barra-global-${o.id}" style="width:${glob}%;"></div><div class="progress-text" id="texto-global-${o.id}">${glob}%</div></div></div><div class="obra-corpo" id="corpo-${o.id}">${htmlM}${blocoNotasHTML}</div>`;
             lista.appendChild(div);
         });
     }
@@ -1332,7 +1338,6 @@
         } 
     }
 
-    /* EXCLUSÃO DE SETOR/ANDAR (APENAS ADMINISTRADOR) */
     function deletarAndarObra(obraId, macro, andarId) {
         if(window.event) window.event.stopPropagation();
         if(!["master", "admin"].includes(usuarioAtualPermissoes)) return alert("Ação permitida apenas para Administradores.");
@@ -1377,7 +1382,6 @@
         } 
     }
 
-    /* EXCLUSÃO DE EQUIPAMENTO (APENAS ADMINISTRADOR) */
     function deletarEquipamentoObra(obraId, macro, andarId, eqId) {
         if(window.event) window.event.stopPropagation();
         if(!["master", "admin"].includes(usuarioAtualPermissoes)) return alert("Ação permitida apenas para Administradores.");
