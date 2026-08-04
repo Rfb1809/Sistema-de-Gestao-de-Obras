@@ -66,7 +66,7 @@
         .sys-box .sys-header { font-weight: bold; color: #e5e7eb; font-size: 14px; margin-bottom: 10px; border-bottom: 1px dashed #4b5563; display: flex; justify-content: space-between; }
         
         .andar-container { background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
-        .andar-header-title { font-size: 13px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+        .andar-header-title { font-size: 13px; font-weight: bold; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; }
 
         .maint-section-title { font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin: 6px 0 4px 0; display: flex; align-items: center; gap: 4px; }
         .maint-section-title.preventiva { color: #10b981; }
@@ -128,6 +128,9 @@
         .subdivisao-info { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #f3f4f6; }
         
         .btn-danger { background-color: #dc2626; padding: 6px 12px; font-size: 13px; border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: bold; }
+        .btn-del-mini { background: none; border: none; color: #f87171; cursor: pointer; font-size: 13px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        .btn-del-mini:hover { background: rgba(248, 113, 113, 0.2); }
+
         .sub-form { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
         .sub-form input, .sub-form select { flex: 1; min-width: 150px; padding: 8px; font-size: 14px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 6px; }
         .sub-form button { padding: 8px 12px; font-size: 13px; background-color: #4b5563; color: #f3f4f6; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
@@ -1075,6 +1078,7 @@
         const termo = document.getElementById("searchObras").value.toLowerCase().trim();
         const filtradas = obras.filter(o => o.nome.toLowerCase().includes(termo));
         const isAdminGerente = ["master", "admin", "gerente"].includes(usuarioAtualPermissoes);
+        const isAdmin = ["master", "admin"].includes(usuarioAtualPermissoes);
 
         filtradas.forEach(o => {
             const glob = calcularTotalObra(o); const div = document.createElement('div'); div.className = 'obra-item'; let htmlM = '';
@@ -1086,12 +1090,17 @@
                     let htmlEqps = ''; const eqps = andarObj.equipamentos || [];
                     eqps.forEach(e => {
                         let controleInput = usuarioAtualPermissoes === "ver" ? "" : `<input type="range" min="0" max="100" value="${e.porcentagem}" oninput="atualizarPorcentagemEqObra('${o.id}','${d.nome}','${andarObj.id}','${e.id}',this.value)">`;
-    
-                        htmlEqps += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div>• ${e.nome}</div><div><span id="lbl-${e.id}">${e.porcentagem}%</span></div></div>${controleInput}</div>`;
+                        let btnDeleteEq = isAdmin ? `<button class="btn-del-mini" onclick="deletarEquipamentoObra('${o.id}','${d.nome}','${andarObj.id}','${e.id}')" title="Excluir Equipamento">🗑️ Excluir</button>` : '';
+
+                        htmlEqps += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div style="display:flex; justify-content:space-between; align-items:center; width:100%;"><span>• ${e.nome}</span><div style="display:flex; align-items:center; gap:8px;"><span id="lbl-${e.id}">${e.porcentagem}%</span>${btnDeleteEq}</div></div></div>${controleInput}</div>`;
                     });
+                    
+                    let btnDeleteAndar = isAdmin ? `<button class="btn-danger" style="padding:2px 6px; font-size:11px;" onclick="deletarAndarObra('${o.id}','${d.nome}','${andarObj.id}')">❌ Excluir Setor</button>` : '';
                     let formEqHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="inputEq-${o.id}-${mKey}-${andarObj.id}" placeholder="Equipamentos (ex: Eq1, Eq2, Eq3)..."><button onclick="adicionarEquipamentoObra('${o.id}','${d.nome}','${andarObj.id}')">+ Add Lote</button></div>`;
-                    htmlA += `<div class="andar-container" onclick="event.stopPropagation()"><div class="andar-header-title">📍 Setor/Andar: ${andarObj.andar}</div><div>${htmlEqps || '<p style="font-size:11px;color:#64748b;">Vazio</p>'}</div>${formEqHTML}</div>`;
+                    
+                    htmlA += `<div class="andar-container" onclick="event.stopPropagation()"><div class="andar-header-title"><span>📍 Setor/Andar: ${andarObj.andar}</span>${btnDeleteAndar}</div><div>${htmlEqps || '<p style="font-size:11px;color:#64748b;">Vazio</p>'}</div>${formEqHTML}</div>`;
                 });
+                
                 let formAddAndarHTML = usuarioAtualPermissoes === "ver" ? "" : `<div class="sub-form"><input type="text" id="inputAndar-${o.id}-${mKey}" placeholder="Setores (ex: 1º Andar, 2º Andar, Térreo)..."><button onclick="adicionarAndarObra('${o.id}','${d.nome}')">+ Setor Lote</button></div>`;
                 htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header"><div>${d.nome}</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(obterTodosEquipamentosMacro(andares))}%</span></div></div><div>${htmlA || '<p style="font-size:11px;color:#64748b;">Nenhum Setor.</p>'}</div>${formAddAndarHTML}</div>`;
             });
@@ -1272,9 +1281,6 @@
         const g = calcularTotalObra(o); let bG = document.getElementById('barra-global-'+o.id); let tG = document.getElementById('texto-global-'+o.id); if(bG) bG.style.width = g + '%';
         if(tG) tG.innerText = g + '%'; }
     
-    /* ==========================================================================
-       LÓGICA ATUALIZADA PARA INCLUSÃO EM LOTE (OBRAS, SETORES E EQUIPAMENTOS)
-       ========================================================================== */
     function criarObra() { 
         if(usuarioAtualPermissoes === "ver") return; 
         const input = document.getElementById('nomeObra'); 
@@ -1326,6 +1332,20 @@
         } 
     }
 
+    /* EXCLUSÃO DE SETOR/ANDAR (APENAS ADMINISTRADOR) */
+    function deletarAndarObra(obraId, macro, andarId) {
+        if(window.event) window.event.stopPropagation();
+        if(!["master", "admin"].includes(usuarioAtualPermissoes)) return alert("Ação permitida apenas para Administradores.");
+        if(confirm("Remover este setor/andar e todos os seus equipamentos?")) {
+            const obra = obras.find(o => o.id == obraId);
+            if(obra && obra.divisores[macro]) {
+                obra.divisores[macro] = obra.divisores[macro].filter(a => a.id != andarId);
+                renderizarObras();
+                transmitirDadosParaNuvem();
+            }
+        }
+    }
+
     function adicionarEquipamentoObra(obraId, macro, andarId) { 
         if(window.event) window.event.stopPropagation(); 
         if(usuarioAtualPermissoes === "ver") return; 
@@ -1355,6 +1375,23 @@
                 transmitirDadosParaNuvem(); 
             } 
         } 
+    }
+
+    /* EXCLUSÃO DE EQUIPAMENTO (APENAS ADMINISTRADOR) */
+    function deletarEquipamentoObra(obraId, macro, andarId, eqId) {
+        if(window.event) window.event.stopPropagation();
+        if(!["master", "admin"].includes(usuarioAtualPermissoes)) return alert("Ação permitida apenas para Administradores.");
+        if(confirm("Remover este equipamento?")) {
+            const obra = obras.find(o => o.id == obraId);
+            if(obra && obra.divisores[macro]) {
+                const andarObj = obra.divisores[macro].find(a => a.id == andarId);
+                if(andarObj && andarObj.equipamentos) {
+                    andarObj.equipamentos = andarObj.equipamentos.filter(e => e.id != eqId);
+                    renderizarObras();
+                    transmitirDadosParaNuvem();
+                }
+            }
+        }
     }
 
     function atualizarPorcentagemEqObra(obraId, macro, andarId, eqId, val) { if(usuarioAtualPermissoes === "ver") return; const obra = obras.find(o => o.id == obraId); if (obra) { const andarObj = obra.divisores[macro].find(a => a.id == andarId); if(andarObj) { const eq = andarObj.equipamentos.find(e => e.id == eqId); if (eq) { eq.porcentagem = parseInt(val); document.getElementById(`lbl-${eqId}`).innerText = val + '%'; recarculaValoresObra(obra); transmitirDadosParaNuvem(); } } } }
