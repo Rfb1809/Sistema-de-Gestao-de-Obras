@@ -10,7 +10,7 @@
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background-color: #121824; color: #f8fafc; padding: 15px; }
-        .container { max-width: 1200px; margin: 0 auto; }
+        .container { max-width: 1250px; margin: 0 auto; }
         header { text-align: center; margin-bottom: 25px; color: #38bdf8; position: relative; }
         header h1 { font-size: 26px; margin-bottom: 5px; }
         header p { font-size: 14px; color: #94a3b8; margin-bottom: 15px; }
@@ -118,21 +118,26 @@
         .obra-corpo.active { display: block; }
         
         .obra-dashboard-container { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; background: #0f172a; border-radius: 8px; padding: 15px; border: 1px solid #334155; }
-        @media(min-width: 768px) { .obra-dashboard-container { grid-template-columns: 280px 1fr; } }
+        @media(min-width: 850px) { .obra-dashboard-container { grid-template-columns: 300px 1fr; } }
 
-        .divisao-macro { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
-        .divisao-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; font-weight: bold; color: #f8fafc; font-size: 14px; }
-        .divisao-corpo { display: none; margin-top: 10px; border-top: 1px dashed #4b5563; padding-top: 10px; }
-        .divisao-corpo.active { display: block; }
-
-        .sistema-container { background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 8px; margin-bottom: 8px; }
-        .sistema-header-title { font-size: 13px; font-weight: bold; color: #38bdf8; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
-        .sistema-body { display: none; margin-top: 8px; border-top: 1px solid #334155; padding-top: 8px; }
+        .sistema-card { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        .sistema-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; font-weight: bold; color: #38bdf8; font-size: 15px; }
+        .sistema-body { display: none; margin-top: 10px; border-top: 1px dashed #4b5563; padding-top: 10px; }
         .sistema-body.active { display: block; }
 
-        .subdivisao-item { background: #0f172a; padding: 8px; border: 1px solid #374151; border-radius: 6px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 6px; }
-        .subdivisao-info { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #f3f4f6; }
+        .andar-card { background: #111827; border: 1px solid #334155; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+        .andar-title { font-size: 13px; font-weight: bold; color: #f8fafc; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+        .andar-content { display: none; margin-top: 8px; border-top: 1px solid #1e293b; padding-top: 8px; }
+        .andar-content.active { display: block; }
+
+        /* TABELA E CHECKBOXES DOS EQUIPAMENTOS */
+        .equip-grid-row { display: grid; grid-template-columns: 1.5fr repeat(7, auto) 2fr 30px; gap: 8px; align-items: center; background: #0f172a; padding: 8px 10px; border-radius: 6px; border: 1px solid #334155; margin-bottom: 6px; font-size: 12px; }
+        @media(max-width: 900px) { .equip-grid-row { grid-template-columns: 1fr; gap: 6px; } }
         
+        .chk-label { display: flex; align-items: center; gap: 3px; font-size: 10px; color: #94a3b8; cursor: pointer; user-select: none; }
+        .chk-label input { cursor: pointer; accent-color: #38bdf8; width: 14px; height: 14px; }
+        .obs-input { padding: 4px 8px !important; font-size: 11px !important; height: 28px !important; border-radius: 4px !important; }
+
         .btn-add-fast { background: #0284c7; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; }
         .btn-add-fast:hover { background: #0369a1; }
 
@@ -437,7 +442,7 @@
     const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbzmszE3sVm0Qa1U2G4_8O2cidaQOooTWOYBWnlkLmBG5Mn3i8nmHdvymuzpoEYouFl6YA/exec";
     let obras = [], clientesMaint = [], colaboradores = [], usuarios = [];
     let chartG1 = null, chartG2 = null;
-    let obraCharts = {}; // Armazena instâncias de gráficos de cada obra
+    let obraCharts = {}; 
     let usuarioLogadoNome = "", usuarioAtualPermissoes = "ver";
 
     let lancamentos = [];
@@ -447,14 +452,15 @@
 
     const feriadosFixos = ["01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "11-20", "12-25"];
 
-    const divConfig = [
-        { nome: 'Instalação', peso: 0.15 },
-        { nome: 'Cabeamento', peso: 0.15 },
-        { nome: 'Conectorização', peso: 0.15 },
-        { nome: 'Comissionamento', peso: 0.15 },
-        { nome: 'Lógica (DDC)', peso: 0.15 },
-        { nome: 'Supervisório', peso: 0.15 },
-        { nome: 'Documentação', peso: 0.10 }
+    // Etapas e seus pesos correspondentes no progresso individual do equipamento
+    const etapasConfig = [
+        { chave: 'instalacao', nome: 'Instal.', peso: 0.15 },
+        { chave: 'cabeamento', nome: 'Cab.', peso: 0.15 },
+        { chave: 'conectorizacao', nome: 'Conect.', peso: 0.15 },
+        { chave: 'comissionamento', nome: 'Comiss.', peso: 0.15 },
+        { chave: 'logica', nome: 'Lóg.', peso: 0.15 },
+        { chave: 'supervisorio', nome: 'Superv.', peso: 0.15 },
+        { chave: 'documentacao', nome: 'Doc.', peso: 0.10 }
     ];
     
     function gerarUUID() { return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)); }
@@ -533,9 +539,7 @@
                     id: o.id,
                     nome: o.nome,
                     notasFeed: o.notasFeed ? (typeof o.notasFeed === 'string' ? JSON.parse(o.notasFeed) : o.notasFeed) : [],
-                    divisores: o.divisores || { 
-                        'Instalação': [], 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] 
-                    }
+                    sistemas: o.sistemas || []
                 }));
             } else { obras = []; }
             
@@ -563,57 +567,38 @@
         btnElement.classList.add('active');
     }
 
-    // --- FUNÇÕES DE ESTRUTURA E CÁLCULOS DAS OBRAS ---
+    // --- CÁLCULOS DA ESTRUTURA ENXUTA DA OBRA ---
 
-    function obterTodosEquipamentosMacro(sistemasDaCategoria) {
-        let eqps = [];
-        if (sistemasDaCategoria && Array.isArray(sistemasDaCategoria)) {
-            sistemasDaCategoria.forEach(sys => {
-                if (sys.andares && Array.isArray(sys.andares)) {
-                    sys.andares.forEach(andar => {
-                        if (andar.equipamentos && Array.isArray(andar.equipamentos)) {
-                            eqps.push(...andar.equipamentos);
-                        }
-                    });
-                }
-            });
-        }
-        return eqps;
+    function calcularPorcentagemEquipamento(eq) {
+        let pct = 0;
+        etapasConfig.forEach(e => {
+            if (eq.checkState && eq.checkState[e.chave]) {
+                pct += e.peso * 100;
+            }
+        });
+        return Math.round(pct);
     }
 
-    function calcularMedia(lista) { return lista && lista.length ? Math.round(lista.reduce((a, b) => a + (b.porcentagem || 0), 0) / lista.length) : 0; }
-    
-    function calcularTotalObra(o) {
-        let total = 0;
-        if(o.divisores) {
-            divConfig.forEach(d => {
-                total += calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) * d.peso;
-            });
-        }
-        return Math.round(total);
-    }
-
-    // Calcula percentual individual por Sistema de uma Obra
     function calcularStatusSistemasObra(obra) {
-        let sistemasMap = {};
-        divConfig.forEach(d => {
-            const sistemas = obra.divisores[d.nome] || [];
-            sistemas.forEach(sys => {
-                if (!sistemasMap[sys.nome]) sistemasMap[sys.nome] = [];
-                (sys.andares || []).forEach(andar => {
-                    (andar.equipamentos || []).forEach(e => {
-                        sistemasMap[sys.nome].push(e.porcentagem || 0);
-                    });
+        let resultado = {};
+        (obra.sistemas || []).forEach(sys => {
+            let eqps = [];
+            (sys.andares || []).forEach(a => {
+                (a.equipamentos || []).forEach(eq => {
+                    eqps.push(calcularPorcentagemEquipamento(eq));
                 });
             });
-        });
-
-        let resultado = {};
-        Object.keys(sistemasMap).forEach(nomeSys => {
-            let arr = sistemasMap[nomeSys];
-            resultado[nomeSys] = arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+            let mediaSys = eqps.length > 0 ? Math.round(eqps.reduce((a, b) => a + b, 0) / eqps.length) : 0;
+            resultado[sys.nome] = mediaSys;
         });
         return resultado;
+    }
+
+    function calcularTotalObra(o) {
+        let statusSistemas = calcularStatusSistemasObra(o);
+        let vals = Object.values(statusSistemas);
+        if (vals.length === 0) return 0;
+        return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
     }
 
     function renderizarGraficoPizzaObra(obraId) {
@@ -651,17 +636,23 @@
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } },
-                    tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw}% concluído` } }
+                    tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw}% executado` } }
                 }
             }
         });
     }
 
     function recarculaValoresObra(o) {
-        divConfig.forEach(d => {
-            let el = document.getElementById(`media-${o.id}-${btoa(unescape(encodeURIComponent(d.nome)))}`);
-            if(el) el.innerText = calcularMedia(obterTodosEquipamentosMacro(o.divisores[d.nome])) + '%';
+        (o.sistemas || []).forEach(sys => {
+            let eqps = [];
+            (sys.andares || []).forEach(a => {
+                (a.equipamentos || []).forEach(e => eqps.push(calcularPorcentagemEquipamento(e)));
+            });
+            let mediaSys = eqps.length > 0 ? Math.round(eqps.reduce((a, b) => a + b, 0) / eqps.length) : 0;
+            let el = document.getElementById(`mediaSys-${o.id}-${sys.id}`);
+            if (el) el.innerText = mediaSys + '%';
         });
+
         const g = calcularTotalObra(o);
         let bG = document.getElementById('barra-global-'+o.id), tG = document.getElementById('texto-global-'+o.id);
         if(bG) bG.style.width = g + '%';
@@ -669,6 +660,8 @@
 
         renderizarGraficoPizzaObra(o.id);
     }
+
+    // --- RENDERIZAÇÃO DA ABA OBRAS (ESTRUTURA SOLICITADA) ---
 
     function renderizarObras() {
         if (!document.getElementById("tab-obras").classList.contains("active")) return;
@@ -682,43 +675,74 @@
         filtradas.forEach(o => {
             const glob = calcularTotalObra(o); 
             const div = document.createElement('div'); div.className = 'obra-item'; 
-            let htmlM = '';
+            let htmlSistemas = '';
             
-            divConfig.forEach(d => {
-                const sistemas = o.divisores[d.nome] || [];
-                const mKey = btoa(unescape(encodeURIComponent(d.nome)));
-                let htmlS = '';
-
-                sistemas.forEach(sysObj => {
-                    let htmlA = '';
-
-                    (sysObj.andares || []).forEach(andarObj => {
-                        let htmlEqps = '';
-                        const eqps = andarObj.equipamentos || [];
-
-                        eqps.forEach(e => {
-                            let controleInput = !podeOperar ? "" : `<input type="range" min="0" max="100" value="${e.porcentagem}" oninput="atualizarPorcentagemEqObra('${o.id}','${d.nome}','${sysObj.id}','${andarObj.id}','${e.id}',this.value)">`;
-                            let btnDeleteEq = isAdmin ? `<button class="btn-del-mini" onclick="deletarEquipamentoObra('${o.id}','${d.nome}','${sysObj.id}','${andarObj.id}','${e.id}')">🗑️</button>` : '';
-
-                            htmlEqps += `<div class="subdivisao-item" onclick="event.stopPropagation()"><div class="subdivisao-info"><div style="display:flex; justify-content:space-between; align-items:center; width:100%;"><span>• ${e.nome}</span><div style="display:flex; align-items:center; gap:8px;"><span id="lbl-${e.id}">${e.porcentagem}%</span>${btnDeleteEq}</div></div></div>${controleInput}</div>`;
-                        });
-                        
-                        let btnDeleteAndar = isAdmin ? `<button class="btn-del-mini" onclick="deletarAndarObra('${o.id}','${d.nome}','${sysObj.id}','${andarObj.id}')">❌</button>` : '';
-                        let btnAddEqFast = podeOperar ? `<button class="btn-add-fast" onclick="adicionarEquipamentoObraPrompt('${o.id}','${d.nome}','${sysObj.id}','${andarObj.id}')">+ Equipamentos</button>` : '';
-
-                        htmlA += `<div class="andar-container" onclick="event.stopPropagation()"><div class="andar-header-title" onclick="document.getElementById('andarBody-${o.id}-${mKey}-${sysObj.id}-${andarObj.id}').classList.toggle('active')"><span>📍 Setor: ${andarObj.andar} ▾</span><div style="display:flex;gap:6px;">${btnAddEqFast}${btnDeleteAndar}</div></div><div class="andar-body" id="andarBody-${o.id}-${mKey}-${sysObj.id}-${andarObj.id}">${htmlEqps || '<p style="font-size:11px;color:#64748b;">Nenhum equipamento.</p>'}</div></div>`;
-                    });
-
-                    let btnDeleteSistema = isAdmin ? `<button class="btn-del-mini" onclick="deletarSistemaObra('${o.id}','${d.nome}','${sysObj.id}')">❌</button>` : '';
-                    let btnAddAndarFast = podeOperar ? `<button class="btn-add-fast" onclick="adicionarAndarObraPrompt('${o.id}','${d.nome}','${sysObj.id}')">+ Setor/Andar</button>` : '';
-
-                    htmlS += `<div class="sistema-container" onclick="event.stopPropagation()"><div class="sistema-header-title" onclick="document.getElementById('sysBody-${o.id}-${mKey}-${sysObj.id}').classList.toggle('active')"><span>⚙️ Sistema: ${sysObj.nome} ▾</span><div style="display:flex;gap:6px;">${btnAddAndarFast}${btnDeleteSistema}</div></div><div class="sistema-body" id="sysBody-${o.id}-${mKey}-${sysObj.id}">${htmlA || '<p style="font-size:11px;color:#64748b;">Nenhum setor.</p>'}</div></div>`;
-                });
+            (o.sistemas || []).forEach(sysObj => {
+                let htmlAndares = '';
                 
-                let btnAddSysFast = podeOperar ? `<button class="btn-add-fast" onclick="adicionarSistemaObraPrompt('${o.id}','${d.nome}')">+ Add Sistema</button>` : '';
-                htmlM += `<div class="divisao-macro" onclick="event.stopPropagation()"><div class="divisao-header" onclick="document.getElementById('macroBody-${o.id}-${mKey}').classList.toggle('active')"><div style="display:flex;align-items:center;gap:10px;">📁 ${d.nome} ${btnAddSysFast} ▾</div><div>Média: <span id="media-${o.id}-${mKey}">${calcularMedia(obterTodosEquipamentosMacro(sistemas))}%</span></div></div><div class="divisao-corpo" id="macroBody-${o.id}-${mKey}">${htmlS || '<p style="font-size:11px;color:#64748b;">Nenhum Sistema.</p>'}</div></div>`;
+                // Calcula média do sistema
+                let eqpsSys = [];
+                (sysObj.andares || []).forEach(a => (a.equipamentos || []).forEach(e => eqpsSys.push(calcularPorcentagemEquipamento(e))));
+                let mediaSys = eqpsSys.length > 0 ? Math.round(eqpsSys.reduce((a, b) => a + b, 0) / eqpsSys.length) : 0;
+
+                (sysObj.andares || []).forEach(andarObj => {
+                    let htmlEqps = '';
+                    const eqps = andarObj.equipamentos || [];
+
+                    eqps.forEach(e => {
+                        if (!e.checkState) e.checkState = {};
+
+                        let chkHTML = '';
+                        etapasConfig.forEach(etapa => {
+                            let checked = e.checkState[etapa.chave] ? 'checked' : '';
+                            let disabled = !podeOperar ? 'disabled' : '';
+                            chkHTML += `<label class="chk-label"><input type="checkbox" ${checked} ${disabled} onchange="atualizarCheckStateEquipamento('${o.id}','${sysObj.id}','${andarObj.id}','${e.id}','${etapa.chave}',this.checked)"> ${etapa.nome}</label>`;
+                        });
+
+                        let pctEq = calcularPorcentagemEquipamento(e);
+                        let disabledObs = !podeOperar ? 'disabled' : '';
+                        let btnDeleteEq = isAdmin ? `<button class="btn-del-mini" onclick="deletarEquipamentoObra('${o.id}','${sysObj.id}','${andarObj.id}','${e.id}')">🗑️</button>` : '';
+
+                        htmlEqps += `
+                            <div class="equip-grid-row" onclick="event.stopPropagation()">
+                                <div style="font-weight:bold; color:#f8fafc; overflow:hidden; text-overflow:ellipsis;">• ${e.nome} <span style="color:#38bdf8; font-size:11px;">(${pctEq}%)</span></div>
+                                ${chkHTML}
+                                <div><input type="text" class="obs-input" placeholder="Observações..." value="${e.obs || ''}" ${disabledObs} onchange="atualizarObsEquipamento('${o.id}','${sysObj.id}','${andarObj.id}','${e.id}',this.value)"></div>
+                                <div>${btnDeleteEq}</div>
+                            </div>`;
+                    });
+                    
+                    let btnDeleteAndar = isAdmin ? `<button class="btn-del-mini" onclick="deletarAndarObra('${o.id}','${sysObj.id}','${andarObj.id}')">❌</button>` : '';
+                    let btnAddEqFast = podeOperar ? `<button class="btn-add-fast" onclick="adicionarEquipamentoObraPrompt('${o.id}','${sysObj.id}','${andarObj.id}')">+ Equipamento(s)</button>` : '';
+
+                    htmlAndares += `
+                        <div class="andar-card" onclick="event.stopPropagation()">
+                            <div class="andar-title" onclick="document.getElementById('andarBody-${o.id}-${sysObj.id}-${andarObj.id}').classList.toggle('active')">
+                                <span>📍 Setor/Andar: ${andarObj.andar} ▾</span>
+                                <div style="display:flex;gap:6px;">${btnAddEqFast}${btnDeleteAndar}</div>
+                            </div>
+                            <div class="andar-content" id="andarBody-${o.id}-${sysObj.id}-${andarObj.id}">
+                                ${htmlEqps || '<p style="font-size:11px;color:#64748b;">Nenhum equipamento cadastrado.</p>'}
+                            </div>
+                        </div>`;
+                });
+
+                let btnDeleteSistema = isAdmin ? `<button class="btn-del-mini" onclick="deletarSistemaObra('${o.id}','${sysObj.id}')">❌</button>` : '';
+                let btnAddAndarFast = podeOperar ? `<button class="btn-add-fast" onclick="adicionarAndarObraPrompt('${o.id}','${sysObj.id}')">+ Setor/Andar</button>` : '';
+
+                htmlSistemas += `
+                    <div class="sistema-card" onclick="event.stopPropagation()">
+                        <div class="sistema-header" onclick="document.getElementById('sysBody-${o.id}-${sysObj.id}').classList.toggle('active')">
+                            <div style="display:flex;align-items:center;gap:10px;">⚙️ Sistema: ${sysObj.nome} ${btnAddAndarFast} ▾</div>
+                            <div>Média: <span id="mediaSys-${o.id}-${sysObj.id}">${mediaSys}%</span> ${btnDeleteSistema}</div>
+                        </div>
+                        <div class="sistema-body" id="sysBody-${o.id}-${sysObj.id}">
+                            ${htmlAndares || '<p style="font-size:11px;color:#64748b;">Nenhum setor/andar cadastrado.</p>'}
+                        </div>
+                    </div>`;
             });
 
+            let btnAddSysFast = podeOperar ? `<button class="btn-add-fast" onclick="adicionarSistemaObraPrompt('${o.id}')">+ Novo Sistema</button>` : '';
             let btnDeleteObra = isAdminGerente ? `<button class="btn-danger" onclick="deletarObra('${o.id}')">❌ Excluir Obra</button>` : '';
             
             let htmlFeed = '';
@@ -746,21 +770,26 @@
                 <div class="obra-corpo" id="corpo-${o.id}">
                     <div class="obra-dashboard-container">
                         <div>
-                            <h4 style="font-size:13px; color:#38bdf8; margin-bottom:10px; text-align:center;">📊 Execução por Sistema</h4>
-                            <div style="height:180px;"><canvas id="chartObra-${o.id}"></canvas></div>
+                            <h4 style="font-size:13px; color:#38bdf8; margin-bottom:10px; text-align:center;">📊 Execução dos Sistemas</h4>
+                            <div style="height:200px;"><canvas id="chartObra-${o.id}"></canvas></div>
                         </div>
-                        <div>${htmlM}</div>
+                        <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h4 style="font-size:14px; color:#f8fafc;">Sistemas Alocados</h4>
+                                ${btnAddSysFast}
+                            </div>
+                            ${htmlSistemas || '<p style="font-size:12px;color:#64748b;">Nenhum sistema adicionado ainda.</p>'}
+                        </div>
                     </div>
                     ${blocoNotasHTML}
                 </div>`;
             lista.appendChild(div);
             
-            // Renderiza o gráfico quando expandido
             setTimeout(() => renderizarGraficoPizzaObra(o.id), 50);
         });
     }
 
-    // --- FUNÇÕES DE OPERAÇÃO RÁPIDA DE OBRAS (PROMPTS SIMPLIFICADOS) ---
+    // --- OPERAÇÕES RÁPIDAS DE ESTRUTURA ---
 
     function criarObra() { 
         if(usuarioAtualPermissoes === "ver") return; 
@@ -768,16 +797,8 @@
         if (!input.value.trim()) return; 
 
         const novasObras = input.value.split(/[,;\n]+/).map(o => o.trim()).filter(o => o.length > 0);
-
         novasObras.forEach(nomeObra => {
-            obras.push({ 
-                id: gerarUUID(), 
-                nome: nomeObra, 
-                notasFeed: [], 
-                divisores: { 
-                    'Instalação': [], 'Cabeamento': [], 'Conectorização': [], 'Comissionamento': [], 'Lógica (DDC)': [], 'Supervisório': [], 'Documentação': [] 
-                } 
-            }); 
+            obras.push({ id: gerarUUID(), nome: nomeObra, notasFeed: [], sistemas: [] }); 
         });
 
         input.value = ''; 
@@ -787,48 +808,48 @@
 
     function deletarObra(obraId) { if(window.event) window.event.stopPropagation(); if(confirm("Remover esta Obra permanentemente?")) { obras = obras.filter(o => o.id !== obraId); renderizarObras(); transmitirDadosParaNuvem(); } }
 
-    function adicionarSistemaObraPrompt(obraId, macro) {
+    function adicionarSistemaObraPrompt(obraId) {
         if(window.event) window.event.stopPropagation();
         if(usuarioAtualPermissoes === "ver") return;
         
-        let valor = prompt("Digite o nome do(s) Sistema(s) (Separe por vírgula para cadastrar múltiplos):\nEx: CFTV, Controle de Acesso, Ar Condicionado");
+        let valor = prompt("Digite o nome do(s) Sistema(s) (Separe por vírgula para cadastrar múltiplos):\nEx: CFTV, Controle de Acesso, Incêndio");
         if(!valor || !valor.trim()) return;
 
         const obra = obras.find(o => o.id == obraId);
         if(obra) {
-            if(!obra.divisores[macro]) obra.divisores[macro] = [];
+            if(!obra.sistemas) obra.sistemas = [];
             const novosSistemas = valor.split(/[,;\n]+/).map(s => s.trim()).filter(s => s.length > 0);
             novosSistemas.forEach(nomeSys => {
-                obra.divisores[macro].push({ id: gerarUUID(), nome: nomeSys, andares: [] });
+                obra.sistemas.push({ id: gerarUUID(), nome: nomeSys, andares: [] });
             });
             renderizarObras();
             transmitirDadosParaNuvem();
         }
     }
 
-    function deletarSistemaObra(obraId, macro, sysId) {
+    function deletarSistemaObra(obraId, sysId) {
         if(window.event) window.event.stopPropagation();
         if(!["master", "admin"].includes(usuarioAtualPermissoes)) return alert("Ação permitida apenas para Administradores.");
         if(confirm("Remover este sistema e toda a sua estrutura?")) {
             const obra = obras.find(o => o.id == obraId);
-            if(obra && obra.divisores[macro]) {
-                obra.divisores[macro] = obra.divisores[macro].filter(s => s.id != sysId);
+            if(obra && obra.sistemas) {
+                obra.sistemas = obra.sistemas.filter(s => s.id != sysId);
                 renderizarObras();
                 transmitirDadosParaNuvem();
             }
         }
     }
 
-    function adicionarAndarObraPrompt(obraId, macro, sysId) { 
+    function adicionarAndarObraPrompt(obraId, sysId) { 
         if(window.event) window.event.stopPropagation(); 
         if(usuarioAtualPermissoes === "ver") return; 
         
-        let valor = prompt("Digite o nome do(s) Setores/Andares (Separe por vírgula para múltiplos):\nEx: 1º Andar, 2º Andar, Subsolo");
+        let valor = prompt("Digite o nome do(s) Setores/Andares (Separe por vírgula para múltiplos):\nEx: Térreo, 1º Andar, Subsolo");
         if(!valor || !valor.trim()) return;
         
         const obra = obras.find(o => o.id == obraId); 
-        if(obra && obra.divisores[macro]) { 
-            const sysObj = obra.divisores[macro].find(s => s.id == sysId);
+        if(obra && obra.sistemas) { 
+            const sysObj = obra.sistemas.find(s => s.id == sysId);
             if(sysObj) {
                 if(!sysObj.andares) sysObj.andares = [];
                 const novosAndares = valor.split(/[,;\n]+/).map(a => a.trim()).filter(a => a.length > 0);
@@ -841,13 +862,13 @@
         } 
     }
 
-    function deletarAndarObra(obraId, macro, sysId, andarId) {
+    function deletarAndarObra(obraId, sysId, andarId) {
         if(window.event) window.event.stopPropagation();
         if(!["master", "admin"].includes(usuarioAtualPermissoes)) return alert("Ação permitida apenas para Administradores.");
         if(confirm("Remover este setor/andar e seus equipamentos?")) {
             const obra = obras.find(o => o.id == obraId);
-            if(obra && obra.divisores[macro]) {
-                const sysObj = obra.divisores[macro].find(s => s.id == sysId);
+            if(obra && obra.sistemas) {
+                const sysObj = obra.sistemas.find(s => s.id == sysId);
                 if(sysObj && sysObj.andares) {
                     sysObj.andares = sysObj.andares.filter(a => a.id != andarId);
                     renderizarObras();
@@ -857,7 +878,7 @@
         }
     }
 
-    function adicionarEquipamentoObraPrompt(obraId, macro, sysId, andarId) { 
+    function adicionarEquipamentoObraPrompt(obraId, sysId, andarId) { 
         if(window.event) window.event.stopPropagation(); 
         if(usuarioAtualPermissoes === "ver") return; 
         
@@ -865,15 +886,15 @@
         if(!valor || !valor.trim()) return;
         
         const obra = obras.find(o => o.id == obraId); 
-        if(obra && obra.divisores[macro]) { 
-            const sysObj = obra.divisores[macro].find(s => s.id == sysId);
+        if(obra && obra.sistemas) { 
+            const sysObj = obra.sistemas.find(s => s.id == sysId);
             if(sysObj && sysObj.andares) {
                 const andarObj = sysObj.andares.find(a => a.id == andarId); 
                 if(andarObj) { 
                     if(!andarObj.equipamentos) andarObj.equipamentos = []; 
                     const novosEquipamentos = valor.split(/[,;\n]+/).map(e => e.trim()).filter(e => e.length > 0);
                     novosEquipamentos.forEach(nomeEq => {
-                        andarObj.equipamentos.push({ id: gerarUUID(), nome: nomeEq, porcentagem: 0 }); 
+                        andarObj.equipamentos.push({ id: gerarUUID(), nome: nomeEq, checkState: {}, obs: '' }); 
                     });
                     renderizarObras(); 
                     transmitirDadosParaNuvem(); 
@@ -882,13 +903,13 @@
         } 
     }
 
-    function deletarEquipamentoObra(obraId, macro, sysId, andarId, eqId) {
+    function deletarEquipamentoObra(obraId, sysId, andarId, eqId) {
         if(window.event) window.event.stopPropagation();
         if(!["master", "admin"].includes(usuarioAtualPermissoes)) return alert("Ação permitida apenas para Administradores.");
         if(confirm("Remover este equipamento?")) {
             const obra = obras.find(o => o.id == obraId);
-            if(obra && obra.divisores[macro]) {
-                const sysObj = obra.divisores[macro].find(s => s.id == sysId);
+            if(obra && obra.sistemas) {
+                const sysObj = obra.sistemas.find(s => s.id == sysId);
                 if(sysObj && sysObj.andares) {
                     const andarObj = sysObj.andares.find(a => a.id == andarId);
                     if(andarObj && andarObj.equipamentos) {
@@ -901,27 +922,45 @@
         }
     }
 
-    function atualizarPorcentagemEqObra(obraId, macro, sysId, andarId, eqId, val) { 
-        if(usuarioAtualPermissoes === "ver") return; 
-        const obra = obras.find(o => o.id == obraId); 
-        if (obra && obra.divisores[macro]) { 
-            const sysObj = obra.divisores[macro].find(s => s.id == sysId);
-            if(sysObj && sysObj.andares) {
-                const andarObj = sysObj.andares.find(a => a.id == andarId); 
-                if(andarObj && andarObj.equipamentos) { 
-                    const eq = andarObj.equipamentos.find(e => e.id == eqId); 
-                    if (eq) { 
-                        eq.porcentagem = parseInt(val); 
-                        document.getElementById(`lbl-${eqId}`).innerText = val + '%'; 
-                        recarculaValoresObra(obra); 
-                        transmitirDadosParaNuvem(); 
-                    } 
-                } 
+    function atualizarCheckStateEquipamento(obraId, sysId, andarId, eqId, etapaChave, marcado) {
+        if(usuarioAtualPermissoes === "ver") return;
+        const obra = obras.find(o => o.id == obraId);
+        if (obra && obra.sistemas) {
+            const sysObj = obra.sistemas.find(s => s.id == sysId);
+            if (sysObj && sysObj.andares) {
+                const andarObj = sysObj.andares.find(a => a.id == andarId);
+                if (andarObj && andarObj.equipamentos) {
+                    const eq = andarObj.equipamentos.find(e => e.id == eqId);
+                    if (eq) {
+                        if (!eq.checkState) eq.checkState = {};
+                        eq.checkState[etapaChave] = marcado;
+                        recarculaValoresObra(obra);
+                        transmitirDadosParaNuvem();
+                    }
+                }
             }
-        } 
+        }
     }
 
-    // --- OUTRAS ABAS E UTILITÁRIOS SISTEMA ---
+    function atualizarObsEquipamento(obraId, sysId, andarId, eqId, texto) {
+        if(usuarioAtualPermissoes === "ver") return;
+        const obra = obras.find(o => o.id == obraId);
+        if (obra && obra.sistemas) {
+            const sysObj = obra.sistemas.find(s => s.id == sysId);
+            if (sysObj && sysObj.andares) {
+                const andarObj = sysObj.andares.find(a => a.id == andarId);
+                if (andarObj && andarObj.equipamentos) {
+                    const eq = andarObj.equipamentos.find(e => e.id == eqId);
+                    if (eq) {
+                        eq.obs = texto;
+                        transmitirDadosParaNuvem();
+                    }
+                }
+            }
+        }
+    }
+
+    // --- OUTRAS ABAS E UTILITÁRIOS ---
 
     function processarFoto(input) {
         if (input.files && input.files[0]) {
