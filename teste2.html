@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Clínica - Controle de Tirzepatida</title>
+    
+    <!-- Bibliotecas Externas (Gráficos e PDF) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
     <style>
         :root {
             --primary: #0056b3;
@@ -12,21 +18,24 @@
             --border: #ced4da;
             --danger: #dc3545;
             --success: #28a745;
+            --warning: #ffc107;
         }
         
+        * { box-sizing: border-box; }
+
         body {
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background-color: #f4f7f6;
             color: var(--text);
             margin: 0;
-            padding: 20px;
+            padding: 10px;
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             background: #ffffff;
-            padding: 30px;
+            padding: 20px;
             border-radius: 10px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.05);
         }
@@ -38,45 +47,45 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
-        h1, h2 {
-            color: var(--primary);
-            margin: 0;
+        h1, h2, h3 { color: var(--primary); margin: 0 0 15px 0; }
+        h1 { font-size: 1.5rem; }
+
+        .btn-export {
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
         }
 
+        .btn-export:hover { background-color: #138496; }
+
+        /* Formulário */
         .form-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
 
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        label {
-            font-weight: 600;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-        }
-
+        .form-group { display: flex; flex-direction: column; }
+        label { font-weight: 600; margin-bottom: 5px; font-size: 0.85rem; }
+        
         input, select {
             padding: 10px;
             border: 1px solid var(--border);
             border-radius: 5px;
-            font-size: 1rem;
-            transition: border-color 0.2s;
+            font-size: 0.95rem;
+            width: 100%;
         }
 
-        input:focus, select:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        button {
+        button.btn-salvar {
             background-color: var(--primary);
             color: white;
             border: none;
@@ -85,67 +94,92 @@
             font-size: 1rem;
             cursor: pointer;
             font-weight: 600;
-            transition: background 0.2s;
+            width: 100%;
+            margin-bottom: 30px;
         }
 
-        button:hover {
-            background-color: #004494;
+        /* Dashboard (Gráfico e Recorrência) */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
-        .btn-delete {
-            background-color: var(--danger);
-            padding: 6px 12px;
-            font-size: 0.85rem;
+        .card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
         }
 
-        .btn-delete:hover {
-            background-color: #c82333;
+        .recorrencia-lista {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .recorrencia-lista li {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9rem;
+        }
+        
+        .recorrencia-lista li:last-child { border-bottom: none; }
+
+        /* Tabela Responsiva */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            min-width: 700px; /* Garante scroll no mobile */
         }
 
         th, td {
-            padding: 12px 15px;
+            padding: 12px;
             text-align: left;
             border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
         }
 
-        th {
-            background-color: var(--secondary);
-            color: var(--text);
-            font-weight: 600;
+        th { background-color: var(--secondary); }
+
+        .btn-delete {
+            background-color: var(--danger);
+            color: white; border: none; padding: 5px 10px;
+            border-radius: 4px; cursor: pointer;
         }
 
-        tr:hover {
-            background-color: #f8f9fa;
+        /* Badges de Status */
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
         }
-
-        .dashboard {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 2px solid var(--secondary);
-        }
+        .badge-pago { background-color: #d4edda; color: #155724; }
+        .badge-pendente { background-color: #fff3cd; color: #856404; }
 
         .total-box {
-            background: #eef5fb;
-            border: 1px solid #b8daff;
-            padding: 15px 25px;
-            border-radius: 8px;
-            text-align: center;
+            background: #eef5fb; border: 1px solid #b8daff;
+            padding: 15px; border-radius: 8px; text-align: right;
+            margin-top: 20px;
         }
+        .total-value { font-size: 1.3rem; font-weight: bold; color: var(--primary); }
 
-        .total-value {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--primary);
-            display: block;
-            margin-top: 5px;
+        /* Ajustes para Celular (Mobile) */
+        @media (max-width: 768px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; align-items: flex-start; }
+            .btn-export { width: 100%; margin-top: 10px; }
+            .container { padding: 15px; }
         }
     </style>
 </head>
@@ -153,26 +187,29 @@
 
 <div class="container">
     <div class="header">
-        <h1>Clínica - Controle de Dispensação</h1>
-        <span>Medicamento: <strong>Tirzepatida</strong></span>
+        <div>
+            <h1>Controle de Dispensação</h1>
+            <span>Medicamento: <strong>Tirzepatida</strong></span>
+        </div>
+        <button class="btn-export" onclick="exportarPDF()">📄 Exportar para PDF</button>
     </div>
 
-    <!-- Formulário de Registro -->
+    <!-- Formulário -->
     <form id="vendaForm">
         <div class="form-grid">
             <div class="form-group">
                 <label for="paciente">Nome do Paciente</label>
-                <input type="text" id="paciente" required placeholder="Ex: João da Silva">
+                <input type="text" id="paciente" required placeholder="Ex: João Silva">
             </div>
             <div class="form-group">
-                <label for="data">Data da Venda</label>
+                <label for="data">Data</label>
                 <input type="date" id="data" required>
             </div>
             <div class="form-group">
                 <label for="dosagem">Dosagem</label>
                 <select id="dosagem" required>
                     <option value="">Selecione...</option>
-                    <option value="2.5mg">2.5 mg (Início)</option>
+                    <option value="2.5mg">2.5 mg</option>
                     <option value="5.0mg">5.0 mg</option>
                     <option value="7.5mg">7.5 mg</option>
                     <option value="10.0mg">10.0 mg</option>
@@ -181,136 +218,233 @@
                 </select>
             </div>
             <div class="form-group">
-                <label for="quantidade">Quantidade (Canetas/Caixas)</label>
+                <label for="quantidade">Qtd</label>
                 <input type="number" id="quantidade" min="1" value="1" required>
             </div>
             <div class="form-group">
-                <label for="precoUnitario">Preço Unitário (R$)</label>
-                <input type="number" id="precoUnitario" step="0.01" min="0" required placeholder="Ex: 1500.00">
+                <label for="precoUnitario">Valor Unitário (R$)</label>
+                <input type="number" id="precoUnitario" step="0.01" min="0" required placeholder="1500.00">
+            </div>
+            <div class="form-group">
+                <label for="statusPagamento">Pagamento</label>
+                <select id="statusPagamento" required>
+                    <option value="Pago">Pago</option>
+                    <option value="Pendente">Pendente</option>
+                </select>
             </div>
         </div>
-        <button type="submit" id="btnSalvar">Registrar Venda</button>
+        <button type="submit" class="btn-salvar" id="btnSalvar">Registrar Venda</button>
     </form>
 
-    <!-- Tabela de Registros -->
-    <h2 style="margin-top: 40px;">Histórico de Vendas</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Data</th>
-                <th>Paciente</th>
-                <th>Dosagem</th>
-                <th>Qtd</th>
-                <th>Valor Unit.</th>
-                <th>Total</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody id="tabelaVendas">
-            <!-- As vendas aparecerão aqui -->
-        </tbody>
-    </table>
-
-    <div class="dashboard">
-        <div class="total-box">
-            <span>Receita Total Acumulada</span>
-            <span class="total-value" id="valorTotal">R$ 0,00</span>
+    <!-- Dashboard -->
+    <div class="dashboard-grid">
+        <div class="card">
+            <h3>📈 Receita Mensal</h3>
+            <canvas id="graficoVendas" height="250"></canvas>
         </div>
+        <div class="card">
+            <h3>🔁 Pacientes Recorrentes</h3>
+            <p style="font-size: 0.8rem; color: #666; margin-top: -10px;">Quem comprou mais vezes</p>
+            <ul class="recorrencia-lista" id="listaRecorrencia">
+                <!-- Lista gerada via JS -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- Tabela -->
+    <h2>Histórico de Vendas</h2>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Data</th>
+                    <th>Paciente</th>
+                    <th>Dosagem</th>
+                    <th>Qtd</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaVendas"></tbody>
+        </table>
+    </div>
+
+    <div class="total-box">
+        <span>Receita Total (Pagos): </span>
+        <span class="total-value" id="valorTotal">R$ 0,00</span>
     </div>
 </div>
 
 <script>
-    // Inicializa a lista de vendas buscando do LocalStorage ou criando um array vazio
-    let vendas = JSON.parse(localStorage.getItem('vendasTirzepatida')) || [];
+    let vendas = JSON.parse(localStorage.getItem('vendasTirzepatidaV2')) || [];
+    let graficoInstancia = null;
 
-    // Formata valores para Moeda Brasileira (BRL)
-    const formatarMoeda = (valor) => {
-        return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    };
-
-    // Formata Data para padrão brasileiro (DD/MM/AAAA)
+    const formatarMoeda = (valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    
     const formatarData = (dataString) => {
         const [ano, mes, dia] = dataString.split('-');
         return `${dia}/${mes}/${ano}`;
     };
 
-    // Função para renderizar a tabela na tela
-    const renderizarTabela = () => {
+    const atualizarDashboard = () => {
         const tbody = document.getElementById('tabelaVendas');
-        tbody.innerHTML = ''; // Limpa a tabela
-        let receitaTotal = 0;
+        tbody.innerHTML = ''; 
+        let receitaPaga = 0;
 
-        vendas.forEach((venda, index) => {
-            const tr = document.createElement('tr');
+        // 1. Preencher Tabela
+        vendas.slice().reverse().forEach((venda, reversedIndex) => {
+            const indexOriginal = vendas.length - 1 - reversedIndex;
+            const badgeClass = venda.status === 'Pago' ? 'badge-pago' : 'badge-pendente';
             
+            if (venda.status === 'Pago') receitaPaga += venda.total;
+
+            const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${formatarData(venda.data)}</td>
                 <td>${venda.paciente}</td>
                 <td>${venda.dosagem}</td>
                 <td>${venda.quantidade}</td>
-                <td>${formatarMoeda(venda.precoUnitario)}</td>
                 <td><strong>${formatarMoeda(venda.total)}</strong></td>
-                <td><button class="btn-delete" onclick="deletarVenda(${index})">Remover</button></td>
+                <td><span class="badge ${badgeClass}">${venda.status}</span></td>
+                <td><button class="btn-delete" onclick="deletarVenda(${indexOriginal})">X</button></td>
             `;
             tbody.appendChild(tr);
-            receitaTotal += venda.total;
         });
 
-        // Atualiza o Dashboard financeiro
-        document.getElementById('valorTotal').innerText = formatarMoeda(receitaTotal);
+        document.getElementById('valorTotal').innerText = formatarMoeda(receitaPaga);
+
+        atualizarGrafico();
+        atualizarRecorrencia();
     };
 
-    // Função para adicionar uma nova venda
-    document.getElementById('vendaForm').addEventListener('submit', function(e) {
-        e.preventDefault(); // Evita que a página recarregue
+    const atualizarGrafico = () => {
+        const ctx = document.getElementById('graficoVendas').getContext('2d');
+        
+        // Agrupar vendas por mês/ano (Apenas vendas Pagas)
+        const vendasMensais = {};
+        vendas.filter(v => v.status === 'Pago').forEach(v => {
+            const dataObj = new Date(v.data + 'T00:00:00'); // Evita bug de fuso horário
+            const mesAno = `${String(dataObj.getMonth() + 1).padStart(2, '0')}/${dataObj.getFullYear()}`;
+            vendasMensais[mesAno] = (vendasMensais[mesAno] || 0) + v.total;
+        });
 
-        const paciente = document.getElementById('paciente').value;
-        const data = document.getElementById('data').value;
-        const dosagem = document.getElementById('dosagem').value;
-        const quantidade = parseInt(document.getElementById('quantidade').value);
-        const precoUnitario = parseFloat(document.getElementById('precoUnitario').value);
-        const total = quantidade * precoUnitario;
+        // Ordenar cronologicamente
+        const labels = Object.keys(vendasMensais).sort((a,b) => {
+            const [mesA, anoA] = a.split('/');
+            const [mesB, anoB] = b.split('/');
+            return new Date(anoA, mesA-1) - new Date(anoB, mesB-1);
+        });
+        const dados = labels.map(l => vendasMensais[l]);
+
+        if (graficoInstancia) graficoInstancia.destroy();
+
+        graficoInstancia = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Receita (R$)',
+                    data: dados,
+                    backgroundColor: '#0056b3',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } }
+            }
+        });
+    };
+
+    const atualizarRecorrencia = () => {
+        const contagem = {};
+        vendas.forEach(v => {
+            const nomeStr = v.paciente.trim().toUpperCase();
+            contagem[nomeStr] = (contagem[nomeStr] || 0) + 1;
+        });
+
+        // Ordenar para mostrar os que compraram mais vezes primeiro
+        const pacientesOrdenados = Object.keys(contagem)
+            .map(nome => ({ nome, compras: contagem[nome] }))
+            .sort((a, b) => b.compras - a.compras)
+            .slice(0, 5); // Mostra o Top 5
+
+        const ul = document.getElementById('listaRecorrencia');
+        ul.innerHTML = pacientesOrdenados.length > 0 
+            ? pacientesOrdenados.map(p => `<li><span>${p.nome}</span> <strong>${p.compras}x</strong></li>`).join('')
+            : '<li>Nenhum dado ainda</li>';
+    };
+
+    // Formulário Submit
+    document.getElementById('vendaForm').addEventListener('submit', function(e) {
+        e.preventDefault();
 
         const novaVenda = {
-            paciente,
-            data,
-            dosagem,
-            quantidade,
-            precoUnitario,
-            total
+            paciente: document.getElementById('paciente').value,
+            data: document.getElementById('data').value,
+            dosagem: document.getElementById('dosagem').value,
+            quantidade: parseInt(document.getElementById('quantidade').value),
+            precoUnitario: parseFloat(document.getElementById('precoUnitario').value),
+            status: document.getElementById('statusPagamento').value,
+            total: parseInt(document.getElementById('quantidade').value) * parseFloat(document.getElementById('precoUnitario').value)
         };
 
         vendas.push(novaVenda);
-        salvarDados();
-        renderizarTabela();
-        
-        // Limpa o formulário
+        localStorage.setItem('vendasTirzepatidaV2', JSON.stringify(vendas));
+        atualizarDashboard();
         this.reset();
-        
-        // Define a data de hoje como padrão para a próxima venda
         document.getElementById('data').valueAsDate = new Date();
     });
 
-    // Função para remover uma venda
     window.deletarVenda = (index) => {
         if(confirm('Tem certeza que deseja remover este registro?')) {
             vendas.splice(index, 1);
-            salvarDados();
-            renderizarTabela();
+            localStorage.setItem('vendasTirzepatidaV2', JSON.stringify(vendas));
+            atualizarDashboard();
         }
     };
 
-    // Salva os dados no navegador (LocalStorage)
-    const salvarDados = () => {
-        localStorage.setItem('vendasTirzepatida', JSON.stringify(vendas));
+    // Função para exportar para PDF usando jsPDF
+    window.exportarPDF = () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        doc.setFontSize(16);
+        doc.text("Relatório de Dispensação - Tirzepatida", 14, 15);
+        doc.setFontSize(10);
+        doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 22);
+
+        const tableColumn = ["Data", "Paciente", "Dosagem", "Qtd", "Total (R$)", "Status"];
+        const tableRows = [];
+
+        vendas.forEach(venda => {
+            const vendaData = [
+                formatarData(venda.data),
+                venda.paciente,
+                venda.dosagem,
+                venda.quantidade,
+                venda.total.toFixed(2).replace('.', ','),
+                venda.status
+            ];
+            tableRows.push(vendaData);
+        });
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: 28,
+            theme: 'striped',
+            headStyles: { fillColor: [0, 86, 179] }
+        });
+
+        doc.save("Relatorio_Tirzepatida.pdf");
     };
 
-    // Preenche a data de hoje ao carregar a página
+    // Inicialização
     document.getElementById('data').valueAsDate = new Date();
-
-    // Renderiza a tabela ao carregar a página
-    renderizarTabela();
+    atualizarDashboard();
 </script>
 </body>
 </html>
-
