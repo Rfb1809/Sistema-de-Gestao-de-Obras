@@ -1,1 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Clínica - Controle de Tirzepatida</title>
+    <style>
+        :root {
+            --primary: #0056b3;
+            --secondary: #e9ecef;
+            --text: #333;
+            --border: #ced4da;
+            --danger: #dc3545;
+            --success: #28a745;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: #f4f7f6;
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .header {
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1, h2 {
+            color: var(--primary);
+            margin: 0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        input, select {
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #004494;
+        }
+
+        .btn-delete {
+            background-color: var(--danger);
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        .btn-delete:hover {
+            background-color: #c82333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: var(--secondary);
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .dashboard {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid var(--secondary);
+        }
+
+        .total-box {
+            background: #eef5fb;
+            border: 1px solid #b8daff;
+            padding: 15px 25px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .total-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            display: block;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Clínica - Controle de Dispensação</h1>
+        <span>Medicamento: <strong>Tirzepatida</strong></span>
+    </div>
+
+    <!-- Formulário de Registro -->
+    <form id="vendaForm">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="paciente">Nome do Paciente</label>
+                <input type="text" id="paciente" required placeholder="Ex: João da Silva">
+            </div>
+            <div class="form-group">
+                <label for="data">Data da Venda</label>
+                <input type="date" id="data" required>
+            </div>
+            <div class="form-group">
+                <label for="dosagem">Dosagem</label>
+                <select id="dosagem" required>
+                    <option value="">Selecione...</option>
+                    <option value="2.5mg">2.5 mg (Início)</option>
+                    <option value="5.0mg">5.0 mg</option>
+                    <option value="7.5mg">7.5 mg</option>
+                    <option value="10.0mg">10.0 mg</option>
+                    <option value="12.5mg">12.5 mg</option>
+                    <option value="15.0mg">15.0 mg</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="quantidade">Quantidade (Canetas/Caixas)</label>
+                <input type="number" id="quantidade" min="1" value="1" required>
+            </div>
+            <div class="form-group">
+                <label for="precoUnitario">Preço Unitário (R$)</label>
+                <input type="number" id="precoUnitario" step="0.01" min="0" required placeholder="Ex: 1500.00">
+            </div>
+        </div>
+        <button type="submit" id="btnSalvar">Registrar Venda</button>
+    </form>
+
+    <!-- Tabela de Registros -->
+    <h2 style="margin-top: 40px;">Histórico de Vendas</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Paciente</th>
+                <th>Dosagem</th>
+                <th>Qtd</th>
+                <th>Valor Unit.</th>
+                <th>Total</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="tabelaVendas">
+            <!-- As vendas aparecerão aqui -->
+        </tbody>
+    </table>
+
+    <div class="dashboard">
+        <div class="total-box">
+            <span>Receita Total Acumulada</span>
+            <span class="total-value" id="valorTotal">R$ 0,00</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Inicializa a lista de vendas buscando do LocalStorage ou criando um array vazio
+    let vendas = JSON.parse(localStorage.getItem('vendasTirzepatida')) || [];
+
+    // Formata valores para Moeda Brasileira (BRL)
+    const formatarMoeda = (valor) => {
+        return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    };
+
+    // Formata Data para padrão brasileiro (DD/MM/AAAA)
+    const formatarData = (dataString) => {
+        const [ano, mes, dia] = dataString.split('-');
+        return `${dia}/${mes}/${ano}`;
+    };
+
+    // Função para renderizar a tabela na tela
+    const renderizarTabela = () => {
+        const tbody = document.getElementById('tabelaVendas');
+        tbody.innerHTML = ''; // Limpa a tabela
+        let receitaTotal = 0;
+
+        vendas.forEach((venda, index) => {
+            const tr = document.createElement('tr');
+            
+            tr.innerHTML = `
+                <td>${formatarData(venda.data)}</td>
+                <td>${venda.paciente}</td>
+                <td>${venda.dosagem}</td>
+                <td>${venda.quantidade}</td>
+                <td>${formatarMoeda(venda.precoUnitario)}</td>
+                <td><strong>${formatarMoeda(venda.total)}</strong></td>
+                <td><button class="btn-delete" onclick="deletarVenda(${index})">Remover</button></td>
+            `;
+            tbody.appendChild(tr);
+            receitaTotal += venda.total;
+        });
+
+        // Atualiza o Dashboard financeiro
+        document.getElementById('valorTotal').innerText = formatarMoeda(receitaTotal);
+    };
+
+    // Função para adicionar uma nova venda
+    document.getElementById('vendaForm').addEventListener('submit', function(e) {
+        e.preventDefault(); // Evita que a página recarregue
+
+        const paciente = document.getElementById('paciente').value;
+        const data = document.getElementById('data').value;
+        const dosagem = document.getElementById('dosagem').value;
+        const quantidade = parseInt(document.getElementById('quantidade').value);
+        const precoUnitario = parseFloat(document.getElementById('precoUnitario').value);
+        const total = quantidade * precoUnitario;
+
+        const novaVenda = {
+            paciente,
+            data,
+            dosagem,
+            quantidade,
+            precoUnitario,
+            total
+        };
+
+        vendas.push(novaVenda);
+        salvarDados();
+        renderizarTabela();
+        
+        // Limpa o formulário
+        this.reset();
+        
+        // Define a data de hoje como padrão para a próxima venda
+        document.getElementById('data').valueAsDate = new Date();
+    });
+
+    // Função para remover uma venda
+    window.deletarVenda = (index) => {
+        if(confirm('Tem certeza que deseja remover este registro?')) {
+            vendas.splice(index, 1);
+            salvarDados();
+            renderizarTabela();
+        }
+    };
+
+    // Salva os dados no navegador (LocalStorage)
+    const salvarDados = () => {
+        localStorage.setItem('vendasTirzepatida', JSON.stringify(vendas));
+    };
+
+    // Preenche a data de hoje ao carregar a página
+    document.getElementById('data').valueAsDate = new Date();
+
+    // Renderiza a tabela ao carregar a página
+    renderizarTabela();
+</script>
+</body>
+</html>
 
