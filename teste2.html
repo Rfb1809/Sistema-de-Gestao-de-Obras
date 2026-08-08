@@ -139,7 +139,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 700px; /* Garante scroll no mobile */
+            min-width: 700px;
         }
 
         th, td {
@@ -239,7 +239,7 @@
     <!-- Dashboard -->
     <div class="dashboard-grid">
         <div class="card">
-            <h3>📈 Receita Mensal</h3>
+            <h3>📊 Quantidade Vendida (Mensal)</h3>
             <canvas id="graficoVendas" height="250"></canvas>
         </div>
         <div class="card">
@@ -321,12 +321,12 @@
     const atualizarGrafico = () => {
         const ctx = document.getElementById('graficoVendas').getContext('2d');
         
-        // Agrupar vendas por mês/ano (Apenas vendas Pagas)
+        // Agrupar quantidades por mês/ano (Conta todas as vendas para controle de estoque)
         const vendasMensais = {};
-        vendas.filter(v => v.status === 'Pago').forEach(v => {
+        vendas.forEach(v => {
             const dataObj = new Date(v.data + 'T00:00:00'); // Evita bug de fuso horário
             const mesAno = `${String(dataObj.getMonth() + 1).padStart(2, '0')}/${dataObj.getFullYear()}`;
-            vendasMensais[mesAno] = (vendasMensais[mesAno] || 0) + v.total;
+            vendasMensais[mesAno] = (vendasMensais[mesAno] || 0) + v.quantidade;
         });
 
         // Ordenar cronologicamente
@@ -344,16 +344,24 @@
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Receita (R$)',
+                    label: 'Unidades Dispensadas',
                     data: dados,
-                    backgroundColor: '#0056b3',
+                    backgroundColor: '#17a2b8', // Cor alterada para diferenciar da receita financeira
                     borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } }
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1 // Garante que o eixo mostre apenas números inteiros (1, 2, 3...)
+                        }
+                    }
+                }
             }
         });
     };
