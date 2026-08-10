@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agenda Multi-Usuário - Google Drive</title>
+    <title>Agenda Ultra Rápida - Google Drive</title>
+    <!-- Chart.js para renderização do Gráfico -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background-color: #121824; color: #f8fafc; padding: 15px; }
@@ -25,21 +27,30 @@
         .card { background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 20px; border: 1px solid #334155; }
         h2 { font-size: 18px; margin-bottom: 15px; color: #f1f5f9; border-bottom: 2px solid #334155; padding-bottom: 6px; }
 
+        /* DASHBOARD */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .kpi-card { background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; text-align: center; }
+        .kpi-card span { font-size: 12px; color: #94a3b8; font-weight: bold; text-transform: uppercase; }
+        .kpi-card h3 { font-size: 28px; font-weight: bold; margin-top: 5px; border: none; padding: 0; }
+        
+        .chart-wrapper { height: 200px; position: relative; margin-top: 10px; }
+
         .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 15px; }
         .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
         label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
         input[type="text"], input[type="password"], input[type="date"], textarea { padding: 10px; font-size: 15px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 8px; width: 100%; outline: none; transition: border-color 0.2s; }
         input:focus, textarea:focus { border-color: #38bdf8; }
         
-        /* ESTRUTURA DOS CARDS DE TAREFA */
+        /* ESTRUTURA DOS CARDS */
         .todo-item { display: flex; flex-direction: column; gap: 12px; padding: 15px; border-bottom: 1px solid #334155; background: #0f172a; margin-bottom: 12px; border-radius: 8px; border-left: 5px solid #38bdf8; }
         .todo-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
         .todo-header h4 { font-size: 16px; color: #f8fafc; }
         
-        /* ESTILOS DOS TÓPICOS/SUBTAREFAS */
+        /* TÓPICOS */
         .topicos-container { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
         .topico-item { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 8px 12px; border-radius: 6px; border: 1px solid #334155; }
         .topico-item.executado span { text-decoration: line-through; color: #10b981; }
+        .topico-item.andamento span { color: #f59e0b; }
         .topico-item.pendente span { color: #f8fafc; }
         .topico-texto { font-size: 14px; flex-grow: 1; margin-right: 10px; word-break: break-word; }
         
@@ -51,7 +62,7 @@
         .btn-danger { background-color: #f43f5e; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
         .btn-subtle { background-color: #334155; color: #f8fafc; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
         
-        .sync-status { text-align: center; font-size: 13px; margin-top: 5px; color: #38bdf8; font-weight: bold; }
+        .sync-status { text-align: center; font-size: 12px; margin-top: 5px; color: #38bdf8; font-weight: bold; min-height: 18px; }
     </style>
 </head>
 <body>
@@ -77,13 +88,35 @@
         <p>Usuário Ativo: <strong id="usuarioLogadoTitulo" style="color: #38bdf8;">-</strong></p>
         
         <div class="actions-bar">
-            <button class="btn-save-cloud" onclick="carregarDadosDaPlanilha(true)">🔄 Atualizar Dados da Planilha</button>
+            <button class="btn-save-cloud" onclick="carregarDadosDaPlanilha(true)">🔄 Forçar Atualização</button>
             <button class="btn-logoff" onclick="logoff()">🚪 Sair (Logoff)</button>
         </div>
         <div id="syncStatus" class="sync-status"></div>
     </header>
 
-    <!-- FORMULÁRIO -->
+    <!-- RESUMO / DASHBOARD -->
+    <div class="card">
+        <h2>📊 Resumo das Atividades do Dia</h2>
+        <div class="dashboard-grid">
+            <div class="kpi-card" style="border-left: 4px solid #f43f5e;">
+                <span>🔴 A Fazer (Pendente)</span>
+                <h3 id="kpiAFazer" style="color: #f43f5e;">0</h3>
+            </div>
+            <div class="kpi-card" style="border-left: 4px solid #f59e0b;">
+                <span>🟡 Em Andamento</span>
+                <h3 id="kpiAndamento" style="color: #f59e0b;">0</h3>
+            </div>
+            <div class="kpi-card" style="border-left: 4px solid #10b981;">
+                <span>🟢 Concluído / Resolvido</span>
+                <h3 id="kpiConcluido" style="color: #10b981;">0</h3>
+            </div>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="chartStatusAgenda"></canvas>
+        </div>
+    </div>
+
+    <!-- FORMULÁRIO DE TAREFAS -->
     <div class="card">
         <h2>📝 Nova Atividade Principal</h2>
         <form id="formAgenda" onsubmit="adicionarTarefa(event)">
@@ -103,7 +136,7 @@
                     <input type="text" id="agendaPrimeiroTopico" placeholder="Ex: Verificar iluminação de emergência">
                 </div>
             </div>
-            <button type="submit" id="btnSalvar" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Criar Tarefa e Salvar</button>
+            <button type="submit" id="btnSalvar" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Criar Tarefa</button>
         </form>
     </div>
 
@@ -119,6 +152,7 @@
     
     let usuarioLogadoNome = "";
     let bancoDadosAgenda = [];
+    let meuGrafico = null;
 
     async function checarLogin() {
         const u = document.getElementById("userInput").value.trim();
@@ -147,16 +181,15 @@
         }
     }
 
-    async function iniciarSessao(usuario) {
+    function iniciarSessao(usuario) {
         usuarioLogadoNome = usuario;
         document.getElementById("tela-login").style.display = "none";
         document.getElementById("usuarioLogadoTitulo").innerText = usuarioLogadoNome;
         
         const hoje = new Date();
-        const dataFormatada = hoje.toISOString().split('T')[0];
-        document.getElementById('agendaData').value = dataFormatada;
+        document.getElementById('agendaData').value = hoje.toISOString().split('T')[0];
         
-        await carregarDadosDaPlanilha(false);
+        carregarDadosDaPlanilha(false);
     }
 
     async function carregarDadosDaPlanilha(manual) {
@@ -198,7 +231,7 @@
             if (manual) statusEl.innerText = "❌ Erro ao conectar com a planilha.";
         }
         
-        setTimeout(() => { statusEl.innerText = ""; }, 4000);
+        setTimeout(() => { statusEl.innerText = ""; }, 3000);
     }
 
     function padronizarDataISO(strData) {
@@ -243,59 +276,104 @@
             return dataBate && usuarioBate;
         });
 
+        let totalAFazer = 0;
+        let totalAndamento = 0;
+        let totalConcluido = 0;
+
         if (tarefasDia.length === 0) {
             lista.innerHTML = `<p style="color:#94a3b8; text-align:center; padding: 25px 0;">Nenhuma atividade agendada para este dia.</p>`;
-            return;
+        } else {
+            tarefasDia.forEach(t => {
+                const div = document.createElement("div"); 
+                div.className = `todo-item`;
+                
+                let htmlTopicos = "";
+                if (t.topicos && t.topicos.length > 0) {
+                    t.topicos.forEach(top => {
+                        if (top.status === 'executado') totalConcluido++;
+                        else if (top.status === 'andamento') totalAndamento++;
+                        else totalAFazer++;
+
+                        htmlTopicos += `
+                            <div class="topico-item ${top.status}">
+                                <span class="topico-texto">${top.status === 'executado' ? '✓ ' : top.status === 'andamento' ? '⏳ ' : '• '} ${escapeHTML(top.texto)}</span>
+                                <div style="display:flex; gap:4px;">
+                                    <button class="btn-success" title="Concluído" onclick="alterarStatusTopico('${t.id}', ${top.id}, 'executado')">✓</button>
+                                    <button class="btn-warning" title="Em Andamento" onclick="alterarStatusTopico('${t.id}', ${top.id}, 'andamento')">⏳</button>
+                                    <button class="btn-danger" title="Pendente/A Fazer" onclick="alterarStatusTopico('${t.id}', ${top.id}, 'pendente')">🔴</button>
+                                    <button class="btn-subtle" title="Excluir Tópico" onclick="removerTopico('${t.id}', ${top.id})">🗑️</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    htmlTopicos = `<p style="font-size:12px; color:#64748b;">Nenhum tópico adicionado.</p>`;
+                }
+
+                div.innerHTML = `
+                    <div class="todo-header">
+                        <h4>📌 ${escapeHTML(t.titulo)}</h4>
+                        <button class="btn-danger" onclick="removerTarefa('${t.id}')">❌ Excluir Tarefa</button>
+                    </div>
+                    
+                    <label style="margin-top:5px;">Tópicos / Detalhamento:</label>
+                    <div class="topicos-container">
+                        ${htmlTopicos}
+                    </div>
+
+                    <div class="add-topico-box">
+                        <input type="text" id="novoTopicoInput-${t.id}" placeholder="+ Adicionar novo tópico/detalhe...">
+                        <button class="btn-subtle" onclick="adicionarTopico('${t.id}')">Adicionar Tópico</button>
+                    </div>
+                `;
+                lista.appendChild(div);
+            });
         }
 
-        tarefasDia.forEach(t => {
-            const div = document.createElement("div"); 
-            div.className = `todo-item`;
-            
-            let htmlTopicos = "";
-            if (t.topicos && t.topicos.length > 0) {
-                t.topicos.forEach(top => {
-                    htmlTopicos += `
-                        <div class="topico-item ${top.status}">
-                            <span class="topico-texto">${top.status === 'executado' ? '✓ ' : '• '} ${escapeHTML(top.texto)}</span>
-                            <div style="display:flex; gap:4px;">
-                                <button class="btn-success" onclick="alterarStatusTopico('${t.id}', ${top.id}, 'executado')">✓</button>
-                                <button class="btn-warning" onclick="alterarStatusTopico('${t.id}', ${top.id}, 'pendente')">⚠</button>
-                                <button class="btn-danger" onclick="removerTopico('${t.id}', ${top.id})">🗑️</button>
-                            </div>
-                        </div>
-                    `;
-                });
-            } else {
-                htmlTopicos = `<p style="font-size:12px; color:#64748b;">Nenhum tópico adicionado.</p>`;
+        atualizarDashboardGrafico(totalAFazer, totalAndamento, totalConcluido);
+    }
+
+    function atualizarDashboardGrafico(aFazer, andamento, concluido) {
+        document.getElementById("kpiAFazer").innerText = aFazer;
+        document.getElementById("kpiAndamento").innerText = andamento;
+        document.getElementById("kpiConcluido").innerText = concluido;
+
+        const ctx = document.getElementById('chartStatusAgenda').getContext('2d');
+
+        if (meuGrafico) {
+            meuGrafico.destroy();
+        }
+
+        meuGrafico = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['A Fazer (Pendente)', 'Em Andamento', 'Concluído / Resolvido'],
+                datasets: [{
+                    data: [aFazer, andamento, concluido],
+                    backgroundColor: ['#f43f5e', '#f59e0b', '#10b981'],
+                    borderWidth: 2,
+                    borderColor: '#1e293b'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#f8fafc', font: { size: 12 } }
+                    }
+                }
             }
-
-            div.innerHTML = `
-                <div class="todo-header">
-                    <h4>📌 ${escapeHTML(t.titulo)}</h4>
-                    <button class="btn-danger" onclick="removerTarefa('${t.id}')">❌ Excluir Tarefa Inteira</button>
-                </div>
-                
-                <label style="margin-top:5px;">Tópicos / Detalhamento:</label>
-                <div class="topicos-container">
-                    ${htmlTopicos}
-                </div>
-
-                <div class="add-topico-box">
-                    <input type="text" id="novoTopicoInput-${t.id}" placeholder="+ Adicionar novo tópico/detalhe...">
-                    <button class="btn-subtle" onclick="adicionarTopico('${t.id}')">Adicionar Tópico</button>
-                </div>
-            `;
-            lista.appendChild(div);
         });
     }
 
-    async function adicionarTarefa(e) {
+    function adicionarTarefa(e) {
         e.preventDefault();
         const data = document.getElementById("agendaData").value;
         const titulo = document.getElementById("agendaTitulo").value.trim();
         const primeiroTopicoTexto = document.getElementById("agendaPrimeiroTopico").value.trim();
-        const btn = document.getElementById("btnSalvar");
 
         if (!data || !titulo) return;
 
@@ -309,28 +387,23 @@
             data, 
             titulo, 
             descricao: JSON.stringify(topicosIniciais), 
+            topicos: topicosIniciais,
             status: 'pendente', 
             usuarioResponsavel: usuarioLogadoNome 
         };
 
-        btn.disabled = true;
-        btn.innerText = "Salvando na planilha...";
+        // 1. Atualização Instantânea na Tela (0ms)
+        bancoDadosAgenda.push(novoItem);
+        renderizarAgenda();
 
-        let salvo = await enviarOperacaoPlanilha({ acao: "salvarItem", item: novoItem });
+        document.getElementById("agendaTitulo").value = ""; 
+        document.getElementById("agendaPrimeiroTopico").value = "";
 
-        btn.disabled = false;
-        btn.innerText = "+ Criar Tarefa e Salvar";
-
-        if (salvo) {
-            document.getElementById("agendaTitulo").value = ""; 
-            document.getElementById("agendaPrimeiroTopico").value = "";
-            await carregarDadosDaPlanilha(false);
-        } else {
-            alert("⚠️ Não foi possível salvar na planilha. Verifique a conexão.");
-        }
+        // 2. Envio em segundo plano
+        enviarOperacaoPlanilhaAsync({ acao: "salvarItem", item: novoItem });
     }
 
-    async function adicionarTopico(tarefaId) {
+    function adicionarTopico(tarefaId) {
         const input = document.getElementById(`novoTopicoInput-${tarefaId}`);
         const texto = input.value.trim();
         if (!texto) return;
@@ -339,61 +412,84 @@
         if (tarefa) {
             if (!tarefa.topicos) tarefa.topicos = [];
             tarefa.topicos.push({ id: Date.now(), texto: texto, status: 'pendente' });
-
             tarefa.descricao = JSON.stringify(tarefa.topicos);
-            await enviarOperacaoPlanilha({ acao: "salvarItem", item: tarefa });
-            await carregarDadosDaPlanilha(false);
+
+            // Atualização Instantânea na Tela
+            renderizarAgenda();
+
+            // Envio em segundo plano
+            enviarOperacaoPlanilhaAsync({ acao: "salvarItem", item: tarefa });
         }
     }
 
-    async function alterarStatusTopico(tarefaId, topicoId, novoStatus) {
+    function alterarStatusTopico(tarefaId, topicoId, novoStatus) {
         let tarefa = bancoDadosAgenda.find(t => String(t.id) === String(tarefaId));
         if (tarefa && tarefa.topicos) {
             let topico = tarefa.topicos.find(top => top.id == topicoId);
             if (topico) {
                 topico.status = novoStatus;
                 tarefa.descricao = JSON.stringify(tarefa.topicos);
-                await enviarOperacaoPlanilha({ acao: "salvarItem", item: tarefa });
-                await carregarDadosDaPlanilha(false);
+
+                // Atualização Instantânea na Tela
+                renderizarAgenda();
+
+                // Envio em segundo plano
+                enviarOperacaoPlanilhaAsync({ acao: "salvarItem", item: tarefa });
             }
         }
     }
 
-    async function removerTopico(tarefaId, topicoId) {
+    function removerTopico(tarefaId, topicoId) {
         let tarefa = bancoDadosAgenda.find(t => String(t.id) === String(tarefaId));
         if (tarefa && tarefa.topicos) {
             tarefa.topicos = tarefa.topicos.filter(top => top.id != topicoId);
             tarefa.descricao = JSON.stringify(tarefa.topicos);
-            await enviarOperacaoPlanilha({ acao: "salvarItem", item: tarefa });
-            await carregarDadosDaPlanilha(false);
+
+            // Atualização Instantânea na Tela
+            renderizarAgenda();
+
+            // Envio em segundo plano
+            enviarOperacaoPlanilhaAsync({ acao: "salvarItem", item: tarefa });
         }
     }
 
-    async function removerTarefa(tarefaId) {
-        if (confirm("Deseja realmente excluir esta tarefa INTEIRA da planilha?")) {
+    function removerTarefa(tarefaId) {
+        if (confirm("Deseja realmente excluir esta tarefa INTEIRA?")) {
             const idTexto = String(tarefaId);
-            let ok = await enviarOperacaoPlanilha({ acao: "excluirItem", id: idTexto });
-            if (ok) {
-                await carregarDadosDaPlanilha(false);
-            } else {
-                alert("⚠️ Não foi possível excluir a tarefa na planilha.");
-            }
+
+            // Atualização Instantânea na Tela
+            bancoDadosAgenda = bancoDadosAgenda.filter(t => String(t.id) !== idTexto);
+            renderizarAgenda();
+
+            // Envio em segundo plano
+            enviarOperacaoPlanilhaAsync({ acao: "excluirItem", id: idTexto });
         }
     }
 
-    async function enviarOperacaoPlanilha(dados) {
-        try {
-            let response = await fetch(URL_GOOGLE_API, { 
-                method: "POST", 
-                headers: { "Content-Type": "text/plain;charset=utf-8" }, 
-                body: JSON.stringify(dados) 
-            });
-            let result = await response.json();
-            return result.status === "sucesso";
-        } catch (e) { 
-            console.error("Erro na comunicação:", e);
-            return false;
-        }
+    // ENVIO OTIMIZADO EM SEGUNDO PLANO
+    function enviarOperacaoPlanilhaAsync(dados) {
+        const statusEl = document.getElementById("syncStatus");
+        statusEl.innerText = "⚡ Salvando alterações na planilha...";
+
+        fetch(URL_GOOGLE_API, { 
+            method: "POST", 
+            headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+            body: JSON.stringify(dados) 
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.status === "sucesso") {
+                statusEl.innerText = "☁️ Salvo no Google Drive";
+            } else {
+                statusEl.innerText = "⚠️ Erro ao salvar online";
+            }
+            setTimeout(() => { statusEl.innerText = ""; }, 2500);
+        })
+        .catch(err => {
+            console.error("Erro no salvamento em segundo plano:", err);
+            statusEl.innerText = "⚠️ Sem resposta da planilha";
+            setTimeout(() => { statusEl.innerText = ""; }, 2500);
+        });
     }
 
     function escapeHTML(str) {
