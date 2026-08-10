@@ -31,25 +31,27 @@
         input[type="text"], input[type="password"], input[type="date"], textarea { padding: 10px; font-size: 15px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 8px; width: 100%; outline: none; transition: border-color 0.2s; }
         input:focus, textarea:focus { border-color: #38bdf8; }
         
-        .todo-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #334155; background: #0f172a; margin-bottom: 8px; border-radius: 6px; border-left: 4px solid #94a3b8; }
-        .todo-item.executado { border-left-color: #10b981; opacity: 0.7; }
-        .todo-item.executado .todo-title { text-decoration: line-through; }
-        .todo-item.pendente { border-left-color: #f59e0b; }
-        .todo-item-info h4 { font-size: 15px; color: #f8fafc; }
-        .todo-item-info p { font-size: 13px; color: #94a3b8; margin-top: 2px; }
-        .todo-actions { display: flex; gap: 8px; }
+        /* ESTRUTURA DOS CARDS DE TAREFA */
+        .todo-item { display: flex; flex-direction: column; gap: 12px; padding: 15px; border-bottom: 1px solid #334155; background: #0f172a; margin-bottom: 12px; border-radius: 8px; border-left: 5px solid #38bdf8; }
+        .todo-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
+        .todo-header h4 { font-size: 16px; color: #f8fafc; }
+        
+        /* ESTILOS DOS TÓPICOS/SUBTAREFAS */
+        .topicos-container { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
+        .topico-item { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 8px 12px; border-radius: 6px; border: 1px solid #334155; }
+        .topico-item.executado span { text-decoration: line-through; color: #10b981; }
+        .topico-item.pendente span { color: #f8fafc; }
+        .topico-texto { font-size: 14px; flex-grow: 1; margin-right: 10px; word-break: break-word; }
+        
+        .add-topico-box { display: flex; gap: 8px; margin-top: 10px; }
+        .add-topico-box input { flex-grow: 1; padding: 8px; font-size: 13px; }
 
-        .btn-success { background-color: #10b981; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-warning { background-color: #f59e0b; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-danger { background-color: #f43f5e; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-action { font-size: 12px; }
-
+        .btn-success { background-color: #10b981; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .btn-warning { background-color: #f59e0b; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .btn-danger { background-color: #f43f5e; color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+        .btn-subtle { background-color: #334155; color: #f8fafc; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        
         .sync-status { text-align: center; font-size: 13px; margin-top: 5px; color: #38bdf8; font-weight: bold; }
-
-        @media (max-width: 600px) {
-            .todo-item { flex-direction: column; align-items: flex-start; gap: 10px; }
-            .todo-actions { width: 100%; justify-content: flex-end; }
-        }
     </style>
 </head>
 <body>
@@ -83,7 +85,7 @@
 
     <!-- FORMULÁRIO -->
     <div class="card">
-        <h2>📝 Nova Atividade / Tarefa</h2>
+        <h2>📝 Nova Atividade Principal</h2>
         <form id="formAgenda" onsubmit="adicionarTarefa(event)">
             <div class="form-row">
                 <div class="form-group">
@@ -91,17 +93,17 @@
                     <input type="date" id="agendaData" required onchange="renderizarAgenda()">
                 </div>
                 <div class="form-group">
-                    <label>Título da Atividade</label>
-                    <input type="text" id="agendaTitulo" placeholder="Ex: Reunião / Inspeção" required>
+                    <label>Título Principal</label>
+                    <input type="text" id="agendaTitulo" placeholder="Ex: Inspeção no Prédio A" required>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group" style="grid-column: span 2;">
-                    <label>Detalhamento / Observações</label>
-                    <textarea id="agendaDescricao" placeholder="Escreva observações..." rows="3"></textarea>
+                    <label>Primeiro Tópico / Subtarefa (Opcional)</label>
+                    <input type="text" id="agendaPrimeiroTopico" placeholder="Ex: Verificar iluminação de emergência">
                 </div>
             </div>
-            <button type="submit" id="btnSalvar" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Adicionar e Salvar na Planilha</button>
+            <button type="submit" id="btnSalvar" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Criar Tarefa e Salvar</button>
         </form>
     </div>
 
@@ -140,7 +142,7 @@
                 btn.innerText = "Entrar"; 
             }
         } catch (e) { 
-            console.warn("Sem acesso online ao Apps Script no momento. Entrando localmente:", e);
+            console.warn("Entrando no modo offline:", e);
             iniciarSessao(u);
         }
     }
@@ -150,7 +152,6 @@
         document.getElementById("tela-login").style.display = "none";
         document.getElementById("usuarioLogadoTitulo").innerText = usuarioLogadoNome;
         
-        // Define a data de hoje no formato YYYY-MM-DD
         const hoje = new Date();
         const dataFormatada = hoje.toISOString().split('T')[0];
         document.getElementById('agendaData').value = dataFormatada;
@@ -167,19 +168,30 @@
             let json = await res.json();
             
             if (json.agenda && Array.isArray(json.agenda)) {
-                // Formata e padroniza as datas vindas da planilha
                 bancoDadosAgenda = json.agenda.map(item => {
+                    let topicosParsed = [];
+                    try {
+                        topicosParsed = item.descricao ? JSON.parse(item.descricao) : [];
+                        if (!Array.isArray(topicosParsed)) {
+                            topicosParsed = [{ id: Date.now(), texto: String(item.descricao), status: 'pendente' }];
+                        }
+                    } catch (e) {
+                        if (item.descricao) {
+                            topicosParsed = [{ id: Date.now(), texto: String(item.descricao), status: 'pendente' }];
+                        }
+                    }
+
                     return {
                         ...item,
+                        id: String(item.id),
                         data: padronizarDataISO(item.data),
-                        usuarioResponsavel: String(item.usuarioResponsavel || "").trim()
+                        usuarioResponsavel: String(item.usuarioResponsavel || "").trim(),
+                        topicos: topicosParsed
                     };
                 });
                 
                 renderizarAgenda();
                 if (manual) statusEl.innerText = "✅ Atualizado com sucesso!";
-            } else {
-                if (manual) statusEl.innerText = "⚠️ Nenhum dado retornado da planilha.";
             }
         } catch (e) {
             console.error("Erro ao carregar da planilha:", e);
@@ -189,17 +201,11 @@
         setTimeout(() => { statusEl.innerText = ""; }, 4000);
     }
 
-    // Função que converte qualquer formato de data recebido da planilha para YYYY-MM-DD
     function padronizarDataISO(strData) {
         if (!strData) return "";
         let dataStr = String(strData).trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(dataStr)) return dataStr.substring(0, 10);
 
-        // Se já estiver no formato YYYY-MM-DD
-        if (/^\d{4}-\d{2}-\d{2}/.test(dataStr)) {
-            return dataStr.substring(0, 10);
-        }
-
-        // Se for uma string de data completa (ex: "Mon Aug 10 2026 00:00:00 GMT...")
         let d = new Date(dataStr);
         if (!isNaN(d.getTime())) {
             let ano = d.getFullYear();
@@ -207,7 +213,6 @@
             let dia = String(d.getDate()).padStart(2, '0');
             return `${ano}-${mes}-${dia}`;
         }
-
         return dataStr;
     }
 
@@ -232,7 +237,6 @@
         const lista = document.getElementById("listaTarefas"); 
         lista.innerHTML = "";
 
-        // Filtra comparando a data ISO e ignorando maiúsculas/minúsculas no nome do usuário
         const tarefasDia = bancoDadosAgenda.filter(t => {
             const dataBate = t.data === dataInput;
             const usuarioBate = String(t.usuarioResponsavel).toLowerCase() === usuarioLogadoNome.toLowerCase();
@@ -246,16 +250,40 @@
 
         tarefasDia.forEach(t => {
             const div = document.createElement("div"); 
-            div.className = `todo-item ${t.status}`;
+            div.className = `todo-item`;
+            
+            let htmlTopicos = "";
+            if (t.topicos && t.topicos.length > 0) {
+                t.topicos.forEach(top => {
+                    htmlTopicos += `
+                        <div class="topico-item ${top.status}">
+                            <span class="topico-texto">${top.status === 'executado' ? '✓ ' : '• '} ${escapeHTML(top.texto)}</span>
+                            <div style="display:flex; gap:4px;">
+                                <button class="btn-success" onclick="alterarStatusTopico('${t.id}', ${top.id}, 'executado')">✓</button>
+                                <button class="btn-warning" onclick="alterarStatusTopico('${t.id}', ${top.id}, 'pendente')">⚠</button>
+                                <button class="btn-danger" onclick="removerTopico('${t.id}', ${top.id})">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } else {
+                htmlTopicos = `<p style="font-size:12px; color:#64748b;">Nenhum tópico adicionado.</p>`;
+            }
+
             div.innerHTML = `
-                <div class="todo-item-info">
-                    <h4 class="todo-title">${escapeHTML(t.titulo)}</h4>
-                    <p>${t.descricao ? escapeHTML(t.descricao).replace(/\n/g, '<br>') : '<em>Sem descrição.</em>'}</p>
+                <div class="todo-header">
+                    <h4>📌 ${escapeHTML(t.titulo)}</h4>
+                    <button class="btn-danger" onclick="removerTarefa('${t.id}')">❌ Excluir Tarefa Inteira</button>
                 </div>
-                <div class="todo-actions">
-                    <button class="btn-success btn-action" onclick="alterarStatusTarefa(${t.id}, 'executado')">✓ Concluído</button>
-                    <button class="btn-warning btn-action" onclick="alterarStatusTarefa(${t.id}, 'pendente')">⚠ Pendente</button>
-                    <button class="btn-danger btn-action" onclick="removerTarefa(${t.id})">Excluir</button>
+                
+                <label style="margin-top:5px;">Tópicos / Detalhamento:</label>
+                <div class="topicos-container">
+                    ${htmlTopicos}
+                </div>
+
+                <div class="add-topico-box">
+                    <input type="text" id="novoTopicoInput-${t.id}" placeholder="+ Adicionar novo tópico/detalhe...">
+                    <button class="btn-subtle" onclick="adicionarTopico('${t.id}')">Adicionar Tópico</button>
                 </div>
             `;
             lista.appendChild(div);
@@ -266,16 +294,21 @@
         e.preventDefault();
         const data = document.getElementById("agendaData").value;
         const titulo = document.getElementById("agendaTitulo").value.trim();
-        const descricao = document.getElementById("agendaDescricao").value.trim();
+        const primeiroTopicoTexto = document.getElementById("agendaPrimeiroTopico").value.trim();
         const btn = document.getElementById("btnSalvar");
 
         if (!data || !titulo) return;
 
+        let topicosIniciais = [];
+        if (primeiroTopicoTexto) {
+            topicosIniciais.push({ id: Date.now(), texto: primeiroTopicoTexto, status: 'pendente' });
+        }
+
         const novoItem = { 
-            id: Date.now(), 
+            id: String(Date.now()), 
             data, 
             titulo, 
-            descricao, 
+            descricao: JSON.stringify(topicosIniciais), 
             status: 'pendente', 
             usuarioResponsavel: usuarioLogadoNome 
         };
@@ -286,30 +319,65 @@
         let salvo = await enviarOperacaoPlanilha({ acao: "salvarItem", item: novoItem });
 
         btn.disabled = false;
-        btn.innerText = "+ Adicionar e Salvar na Planilha";
+        btn.innerText = "+ Criar Tarefa e Salvar";
 
         if (salvo) {
             document.getElementById("agendaTitulo").value = ""; 
-            document.getElementById("agendaDescricao").value = "";
+            document.getElementById("agendaPrimeiroTopico").value = "";
             await carregarDadosDaPlanilha(false);
         } else {
             alert("⚠️ Não foi possível salvar na planilha. Verifique a conexão.");
         }
     }
 
-    async function alterarStatusTarefa(id, status) {
-        let item = bancoDadosAgenda.find(t => t.id == id);
-        if (item) {
-            item.status = status;
-            await enviarOperacaoPlanilha({ acao: "salvarItem", item: item });
+    async function adicionarTopico(tarefaId) {
+        const input = document.getElementById(`novoTopicoInput-${tarefaId}`);
+        const texto = input.value.trim();
+        if (!texto) return;
+
+        let tarefa = bancoDadosAgenda.find(t => String(t.id) === String(tarefaId));
+        if (tarefa) {
+            if (!tarefa.topicos) tarefa.topicos = [];
+            tarefa.topicos.push({ id: Date.now(), texto: texto, status: 'pendente' });
+
+            tarefa.descricao = JSON.stringify(tarefa.topicos);
+            await enviarOperacaoPlanilha({ acao: "salvarItem", item: tarefa });
             await carregarDadosDaPlanilha(false);
         }
     }
 
-    async function removerTarefa(id) {
-        if (confirm("Deseja realmente excluir esta tarefa da planilha?")) {
-            await enviarOperacaoPlanilha({ acao: "excluirItem", id: id });
+    async function alterarStatusTopico(tarefaId, topicoId, novoStatus) {
+        let tarefa = bancoDadosAgenda.find(t => String(t.id) === String(tarefaId));
+        if (tarefa && tarefa.topicos) {
+            let topico = tarefa.topicos.find(top => top.id == topicoId);
+            if (topico) {
+                topico.status = novoStatus;
+                tarefa.descricao = JSON.stringify(tarefa.topicos);
+                await enviarOperacaoPlanilha({ acao: "salvarItem", item: tarefa });
+                await carregarDadosDaPlanilha(false);
+            }
+        }
+    }
+
+    async function removerTopico(tarefaId, topicoId) {
+        let tarefa = bancoDadosAgenda.find(t => String(t.id) === String(tarefaId));
+        if (tarefa && tarefa.topicos) {
+            tarefa.topicos = tarefa.topicos.filter(top => top.id != topicoId);
+            tarefa.descricao = JSON.stringify(tarefa.topicos);
+            await enviarOperacaoPlanilha({ acao: "salvarItem", item: tarefa });
             await carregarDadosDaPlanilha(false);
+        }
+    }
+
+    async function removerTarefa(tarefaId) {
+        if (confirm("Deseja realmente excluir esta tarefa INTEIRA da planilha?")) {
+            const idTexto = String(tarefaId);
+            let ok = await enviarOperacaoPlanilha({ acao: "excluirItem", id: idTexto });
+            if (ok) {
+                await carregarDadosDaPlanilha(false);
+            } else {
+                alert("⚠️ Não foi possível excluir a tarefa na planilha.");
+            }
         }
     }
 
@@ -323,7 +391,7 @@
             let result = await response.json();
             return result.status === "sucesso";
         } catch (e) { 
-            console.error("Erro no envio:", e);
+            console.error("Erro na comunicação:", e);
             return false;
         }
     }
