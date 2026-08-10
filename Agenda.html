@@ -44,7 +44,7 @@
         .btn-danger { background-color: #f43f5e; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-action { font-size: 12px; }
 
-        .sync-status { text-align: center; font-size: 12px; margin-top: 5px; color: #38bdf8; }
+        .sync-status { text-align: center; font-size: 13px; margin-top: 5px; color: #38bdf8; font-weight: bold; }
 
         @media (max-width: 600px) {
             .todo-item { flex-direction: column; align-items: flex-start; gap: 10px; }
@@ -71,11 +71,11 @@
 
 <div class="container">
     <header>
-        <h1>Agenda Multi-Usuário (Google Drive)</h1>
+        <h1>Agenda Conectada ao Google Drive</h1>
         <p>Usuário Ativo: <strong id="usuarioLogadoTitulo" style="color: #38bdf8;">-</strong></p>
         
         <div class="actions-bar">
-            <button class="btn-save-cloud" onclick="carregarDadosDaPlanilha(true)">🔄 Atualizar Dados</button>
+            <button class="btn-save-cloud" onclick="carregarDadosDaPlanilha(true)">🔄 Atualizar Dados da Planilha</button>
             <button class="btn-logoff" onclick="logoff()">🚪 Sair (Logoff)</button>
         </div>
         <div id="syncStatus" class="sync-status"></div>
@@ -105,7 +105,7 @@
         </form>
     </div>
 
-    <!-- LISTA -->
+    <!-- LISTA DE TAREFAS -->
     <div class="card">
         <h2>📋 Atividades Agendadas para <span id="agendaDataSelecionada" style="color:#38bdf8"></span></h2>
         <div id="listaTarefas" style="margin-top: 15px;"></div>
@@ -140,10 +140,8 @@
                 btn.innerText = "Entrar"; 
             }
         } catch (e) { 
-            console.warn("Falha na autenticação online:", e);
-            btn.disabled = false;
-            btn.innerText = "Entrar";
-            alert("Erro de conexão com a planilha.");
+            console.warn("Sem acesso online ao Apps Script no momento. Entrando localmente:", e);
+            iniciarSessao(u);
         }
     }
 
@@ -151,32 +149,66 @@
         usuarioLogadoNome = usuario;
         document.getElementById("tela-login").style.display = "none";
         document.getElementById("usuarioLogadoTitulo").innerText = usuarioLogadoNome;
-        document.getElementById('agendaData').valueAsDate = new Date();
+        
+        // Define a data de hoje no formato YYYY-MM-DD
+        const hoje = new Date();
+        const dataFormatada = hoje.toISOString().split('T')[0];
+        document.getElementById('agendaData').value = dataFormatada;
         
         await carregarDadosDaPlanilha(false);
-        
-        // Auto-sincronização de leitura a cada 30 segundos para puxar novos lançamentos de outros acessos
-        setInterval(() => { carregarDadosDaPlanilha(false); }, 30000);
     }
 
     async function carregarDadosDaPlanilha(manual) {
         const statusEl = document.getElementById("syncStatus");
-        if (manual) statusEl.innerText = "Buscando dados da planilha...";
+        if (manual) statusEl.innerText = "Carregando dados da planilha...";
 
         try {
             let res = await fetch(URL_GOOGLE_API + "?acao=lerDados");
             let json = await res.json();
+            
             if (json.agenda && Array.isArray(json.agenda)) {
-                bancoDadosAgenda = json.agenda;
+                // Formata e padroniza as datas vindas da planilha
+                bancoDadosAgenda = json.agenda.map(item => {
+                    return {
+                        ...item,
+                        data: padronizarDataISO(item.data),
+                        usuarioResponsavel: String(item.usuarioResponsavel || "").trim()
+                    };
+                });
+                
                 renderizarAgenda();
                 if (manual) statusEl.innerText = "✅ Atualizado com sucesso!";
+            } else {
+                if (manual) statusEl.innerText = "⚠️ Nenhum dado retornado da planilha.";
             }
         } catch (e) {
-            console.error("Erro ao buscar dados do Google Drive.", e);
-            if (manual) statusEl.innerText = "❌ Erro ao atualizar.";
+            console.error("Erro ao carregar da planilha:", e);
+            if (manual) statusEl.innerText = "❌ Erro ao conectar com a planilha.";
         }
         
         setTimeout(() => { statusEl.innerText = ""; }, 4000);
+    }
+
+    // Função que converte qualquer formato de data recebido da planilha para YYYY-MM-DD
+    function padronizarDataISO(strData) {
+        if (!strData) return "";
+        let dataStr = String(strData).trim();
+
+        // Se já estiver no formato YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}/.test(dataStr)) {
+            return dataStr.substring(0, 10);
+        }
+
+        // Se for uma string de data completa (ex: "Mon Aug 10 2026 00:00:00 GMT...")
+        let d = new Date(dataStr);
+        if (!isNaN(d.getTime())) {
+            let ano = d.getFullYear();
+            let mes = String(d.getMonth() + 1).padStart(2, '0');
+            let dia = String(d.getDate()).padStart(2, '0');
+            return `${ano}-${mes}-${dia}`;
+        }
+
+        return dataStr;
     }
 
     function logoff() {
@@ -192,14 +224,20 @@
         const dataInput = document.getElementById("agendaData").value; 
         if (!dataInput) return;
 
-        const [ano, mes, dia] = dataInput.split("-");
-        document.getElementById("agendaDataSelecionada").innerText = `${dia}/${mes}/${ano}`;
+        const partes = dataInput.split("-");
+        if (partes.length === 3) {
+            document.getElementById("agendaDataSelecionada").innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
 
         const lista = document.getElementById("listaTarefas"); 
         lista.innerHTML = "";
 
-        // Mostra os itens cadastrados para o usuário ativo na data selecionada
-        const tarefasDia = bancoDadosAgenda.filter(t => t.data === dataInput && t.usuarioResponsavel === usuarioLogadoNome);
+        // Filtra comparando a data ISO e ignorando maiúsculas/minúsculas no nome do usuário
+        const tarefasDia = bancoDadosAgenda.filter(t => {
+            const dataBate = t.data === dataInput;
+            const usuarioBate = String(t.usuarioResponsavel).toLowerCase() === usuarioLogadoNome.toLowerCase();
+            return dataBate && usuarioBate;
+        });
 
         if (tarefasDia.length === 0) {
             lista.innerHTML = `<p style="color:#94a3b8; text-align:center; padding: 25px 0;">Nenhuma atividade agendada para este dia.</p>`;
@@ -255,7 +293,7 @@
             document.getElementById("agendaDescricao").value = "";
             await carregarDadosDaPlanilha(false);
         } else {
-            alert("⚠️ Não foi possível salvar na planilha. Tente novamente.");
+            alert("⚠️ Não foi possível salvar na planilha. Verifique a conexão.");
         }
     }
 
