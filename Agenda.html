@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agenda & Gestão de Atividades</title>
+    <title>Agenda & Gestão de Atividades - Google Drive</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background-color: #121824; color: #f8fafc; padding: 15px; }
@@ -69,16 +69,16 @@
 
 <div class="container">
     <header>
-        <h1>Agenda & Gestão de Atividades</h1>
+        <h1>Agenda Conectada ao Google Drive</h1>
         <p>Usuário Ativo: <strong id="usuarioLogadoTitulo" style="color: #38bdf8;">-</strong></p>
         
         <div class="actions-bar">
-            <button class="btn-save-cloud" onclick="salvarEAtualizarPelaPlanilha()">🔄 Sincronizar com Nuvem</button>
+            <button class="btn-save-cloud" onclick="salvarNaPlanilhaDrive(true)">💾 Sincronizar na Planilha</button>
             <button class="btn-logoff" onclick="logoff()">🚪 Sair (Logoff)</button>
         </div>
     </header>
 
-    <!-- FORMULÁRIO -->
+    <!-- FORMULÁRIO DE TAREFAS -->
     <div class="card">
         <h2>📝 Nova Atividade / Tarefa</h2>
         <form id="formAgenda" onsubmit="adicionarTarefa(event)">
@@ -89,20 +89,20 @@
                 </div>
                 <div class="form-group">
                     <label>Título da Atividade</label>
-                    <input type="text" id="agendaTitulo" placeholder="Ex: Reunião / Inspeção em campo" required>
+                    <input type="text" id="agendaTitulo" placeholder="Ex: Reunião / Inspeção" required>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group" style="grid-column: span 2;">
                     <label>Detalhamento / Observações</label>
-                    <textarea id="agendaDescricao" placeholder="Escreva observações adicionais..." rows="3"></textarea>
+                    <textarea id="agendaDescricao" placeholder="Escreva observações..." rows="3"></textarea>
                 </div>
             </div>
             <button type="submit" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Adicionar à Agenda</button>
         </form>
     </div>
 
-    <!-- LISTA -->
+    <!-- LISTAGEM -->
     <div class="card">
         <h2>📋 Atividades Agendadas para <span id="agendaDataSelecionada" style="color:#38bdf8"></span></h2>
         <div id="listaTarefas" style="margin-top: 15px;"></div>
@@ -110,7 +110,7 @@
 </div>
 
 <script>
-    const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbzmszE3sVm0Qa1U2G4_8O2cidaQOooTWOYBWnlkLmBG5Mn3i8nmHdvymuzpoEYouFl6YA/exec";
+    const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbwkHnxN7KDRYwSAblzNFAOdeIPCPAkjmYmN0nn9wliHgBOI8PpogRtU1H82Z8ScRN3B/exec";
     
     let usuarioLogadoNome = "";
     let bancoDadosAgenda = JSON.parse(localStorage.getItem('bancoDadosAgenda')) || [];
@@ -126,7 +126,6 @@
         btn.innerText = "Autenticando...";
 
         try {
-            // Tenta validar no Google Apps Script
             let r = await fetch(URL_GOOGLE_API + "?usuario=" + encodeURIComponent(u) + "&senha=" + encodeURIComponent(p));
             let res = await r.json();
 
@@ -138,18 +137,32 @@
                 btn.innerText = "Entrar"; 
             }
         } catch (e) { 
-            // Permite acesso local caso haja erro de rede ou CORS na API
-            console.warn("Aviso: Falha na conexão online. Entrando no modo local.", e);
+            console.warn("Sem acesso ao Google Script no momento. Entrando no modo local:", e);
             iniciarSessao(u);
         }
     }
 
-    function iniciarSessao(usuario) {
+    async function iniciarSessao(usuario) {
         usuarioLogadoNome = usuario;
         document.getElementById("tela-login").style.display = "none";
         document.getElementById("usuarioLogadoTitulo").innerText = usuarioLogadoNome;
         document.getElementById('agendaData').valueAsDate = new Date();
+        
+        await carregarDadosDaPlanilha();
         renderizarAgenda();
+    }
+
+    async function carregarDadosDaPlanilha() {
+        try {
+            let res = await fetch(URL_GOOGLE_API + "?acao=lerDados");
+            let json = await res.json();
+            if (json.agenda && Array.isArray(json.agenda)) {
+                bancoDadosAgenda = json.agenda;
+                salvarLocalmente();
+            }
+        } catch (e) {
+            console.error("Erro ao sincronizar leitura do Drive.", e);
+        }
     }
 
     function logoff() {
@@ -171,7 +184,6 @@
         const lista = document.getElementById("listaTarefas"); 
         lista.innerHTML = "";
 
-        // Exibe as tarefas do dia filtrando pelo usuário logado
         const tarefasDia = bancoDadosAgenda.filter(t => t.data === dataInput && t.usuarioResponsavel === usuarioLogadoNome);
 
         if (tarefasDia.length === 0) {
@@ -188,7 +200,7 @@
                     <p>${t.descricao ? escapeHTML(t.descricao).replace(/\n/g, '<br>') : '<em>Sem descrição.</em>'}</p>
                 </div>
                 <div class="todo-actions">
-                    <button class="btn-success btn-action" onclick="alterarStatusTarefa(${t.id}, 'executado')">✓ Executado</button>
+                    <button class="btn-success btn-action" onclick="alterarStatusTarefa(${t.id}, 'executado')">✓ Concluído</button>
                     <button class="btn-warning btn-action" onclick="alterarStatusTarefa(${t.id}, 'pendente')">⚠ Pendente</button>
                     <button class="btn-danger btn-action" onclick="removerTarefa(${t.id})">Excluir</button>
                 </div>
@@ -218,6 +230,7 @@
         document.getElementById("agendaTitulo").value = ""; 
         document.getElementById("agendaDescricao").value = "";
         renderizarAgenda();
+        salvarNaPlanilhaDrive(false);
     }
 
     function alterarStatusTarefa(id, status) {
@@ -227,6 +240,7 @@
         });
         salvarLocalmente();
         renderizarAgenda();
+        salvarNaPlanilhaDrive(false);
     }
 
     function removerTarefa(id) {
@@ -234,6 +248,7 @@
             bancoDadosAgenda = bancoDadosAgenda.filter(t => t.id !== id);
             salvarLocalmente();
             renderizarAgenda();
+            salvarNaPlanilhaDrive(false);
         }
     }
 
@@ -241,9 +256,8 @@
         localStorage.setItem('bancoDadosAgenda', JSON.stringify(bancoDadosAgenda));
     }
 
-    async function salvarEAtualizarPelaPlanilha() {
+    async function salvarNaPlanilhaDrive(notificar) {
         try {
-            // Reutiliza a estrutura de payload 'dadosLote' esperada pelo script backend original
             let payload = { agenda: bancoDadosAgenda };
             let formData = new URLSearchParams(); 
             formData.append("dadosLote", JSON.stringify(payload));
@@ -253,9 +267,11 @@
                 headers: { "Content-Type": "application/x-www-form-urlencoded" }, 
                 body: formData.toString() 
             });
-            alert("✅ Sincronizado com o Google Apps Script com sucesso!");
+
+            if (notificar) alert("✅ Dados sincronizados na planilha do Google Drive com sucesso!");
         } catch (e) { 
-            alert("⚠️ Não foi possível conectar ao servidor online, mas seus dados continuam salvos localmente no dispositivo."); 
+            console.error("Erro ao sincronizar com Google Drive:", e);
+            if (notificar) alert("⚠️ Erro de sincronização. Seus dados continuam salvos neste dispositivo.");
         }
     }
 
