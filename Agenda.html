@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistemas de Agenda & Atividades</title>
+    <title>Agenda & Gestão de Atividades</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background-color: #121824; color: #f8fafc; padding: 15px; }
@@ -23,7 +23,7 @@
         .btn-logoff { background-color: #e11d48; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
 
         .card { background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 20px; border: 1px solid #334155; }
-        h3, h2 { font-size: 18px; margin-bottom: 15px; color: #f1f5f9; border-bottom: 2px solid #334155; padding-bottom: 6px; }
+        h2 { font-size: 18px; margin-bottom: 15px; color: #f1f5f9; border-bottom: 2px solid #334155; padding-bottom: 6px; }
 
         .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 15px; }
         .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
@@ -70,7 +70,7 @@
 <div class="container">
     <header>
         <h1>Agenda & Gestão de Atividades</h1>
-        <p>Usuário Ativo: <strong id="usuarioLogadoTitulo" style="color: #fff;">-</strong></p>
+        <p>Usuário Ativo: <strong id="usuarioLogadoTitulo" style="color: #38bdf8;">-</strong></p>
         
         <div class="actions-bar">
             <button class="btn-save-cloud" onclick="salvarEAtualizarPelaPlanilha()">🔄 Sincronizar com Nuvem</button>
@@ -78,7 +78,7 @@
         </div>
     </header>
 
-    <!-- FORMULÁRIO DE NOVA ATIVIDADE -->
+    <!-- FORMULÁRIO -->
     <div class="card">
         <h2>📝 Nova Atividade / Tarefa</h2>
         <form id="formAgenda" onsubmit="adicionarTarefa(event)">
@@ -89,20 +89,20 @@
                 </div>
                 <div class="form-group">
                     <label>Título da Atividade</label>
-                    <input type="text" id="agendaTitulo" placeholder="Ex: Reunião de Alinhamento / Entregar Relatório" required>
+                    <input type="text" id="agendaTitulo" placeholder="Ex: Reunião / Inspeção em campo" required>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group" style="grid-column: span 2;">
                     <label>Detalhamento / Observações</label>
-                    <textarea id="agendaDescricao" placeholder="Escreva informações ou instruções adicionais..." rows="3"></textarea>
+                    <textarea id="agendaDescricao" placeholder="Escreva observações adicionais..." rows="3"></textarea>
                 </div>
             </div>
             <button type="submit" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Adicionar à Agenda</button>
         </form>
     </div>
 
-    <!-- LISTAGEM DAS ATIVIDADES DO DIA -->
+    <!-- LISTA -->
     <div class="card">
         <h2>📋 Atividades Agendadas para <span id="agendaDataSelecionada" style="color:#38bdf8"></span></h2>
         <div id="listaTarefas" style="margin-top: 15px;"></div>
@@ -126,26 +126,30 @@
         btn.innerText = "Autenticando...";
 
         try {
+            // Tenta validar no Google Apps Script
             let r = await fetch(URL_GOOGLE_API + "?usuario=" + encodeURIComponent(u) + "&senha=" + encodeURIComponent(p));
             let res = await r.json();
 
             if (res.status === "sucesso") {
-                usuarioLogadoNome = u;
-                document.getElementById("tela-login").style.display = "none";
-                document.getElementById("usuarioLogadoTitulo").innerText = usuarioLogadoNome;
-                inicializarApp();
+                iniciarSessao(u);
             } else { 
                 alert("⚠️ " + res.mensagem); 
                 btn.disabled = false; 
                 btn.innerText = "Entrar"; 
             }
         } catch (e) { 
-            // Fallback para login offline caso falhe a API
-            usuarioLogadoNome = u;
-            document.getElementById("tela-login").style.display = "none";
-            document.getElementById("usuarioLogadoTitulo").innerText = usuarioLogadoNome + " (Offline)";
-            inicializarApp();
+            // Permite acesso local caso haja erro de rede ou CORS na API
+            console.warn("Aviso: Falha na conexão online. Entrando no modo local.", e);
+            iniciarSessao(u);
         }
+    }
+
+    function iniciarSessao(usuario) {
+        usuarioLogadoNome = usuario;
+        document.getElementById("tela-login").style.display = "none";
+        document.getElementById("usuarioLogadoTitulo").innerText = usuarioLogadoNome;
+        document.getElementById('agendaData').valueAsDate = new Date();
+        renderizarAgenda();
     }
 
     function logoff() {
@@ -154,27 +158,21 @@
         document.getElementById("passInput").value = "";
         document.getElementById("tela-login").style.display = "flex";
         document.getElementById("btnLoginAction").disabled = false; 
-        document.getElementById("btnLoginAction").innerText = "Entrar";
-    }
-
-    function inicializarApp() {
-        document.getElementById('agendaData').valueAsDate = new Date();
-        renderizarAgenda();
+        document.getElementById("btnLoginAction").innerText = "Entrar no Sistema";
     }
 
     function renderizarAgenda() {
-        const dataSelecionada = document.getElementById("agendaData").value; 
-        if (!dataSelecionada) return;
+        const dataInput = document.getElementById("agendaData").value; 
+        if (!dataInput) return;
 
-        // Formata a data para visualização
-        const partesData = dataSelecionada.split("-");
-        document.getElementById("agendaDataSelecionada").innerText = `${partesData[2]}/${partesData[1]}/${partesData[0]}`;
+        const [ano, mes, dia] = dataInput.split("-");
+        document.getElementById("agendaDataSelecionada").innerText = `${dia}/${mes}/${ano}`;
 
         const lista = document.getElementById("listaTarefas"); 
         lista.innerHTML = "";
 
-        // Filtra as tarefas pela data e pelo usuário logado
-        const tarefasDia = bancoDadosAgenda.filter(t => t.data === dataSelecionada && t.usuarioResponsavel === usuarioLogadoNome);
+        // Exibe as tarefas do dia filtrando pelo usuário logado
+        const tarefasDia = bancoDadosAgenda.filter(t => t.data === dataInput && t.usuarioResponsavel === usuarioLogadoNome);
 
         if (tarefasDia.length === 0) {
             lista.innerHTML = `<p style="color:#94a3b8; text-align:center; padding: 25px 0;">Nenhuma atividade agendada para este dia.</p>`;
@@ -186,11 +184,11 @@
             div.className = `todo-item ${t.status}`;
             div.innerHTML = `
                 <div class="todo-item-info">
-                    <h4 class="todo-title">${t.titulo}</h4>
-                    <p>${t.descricao ? t.descricao.replace(/\n/g, '<br>') : '<em>Sem descrição adicional.</em>'}</p>
+                    <h4 class="todo-title">${escapeHTML(t.titulo)}</h4>
+                    <p>${t.descricao ? escapeHTML(t.descricao).replace(/\n/g, '<br>') : '<em>Sem descrição.</em>'}</p>
                 </div>
                 <div class="todo-actions">
-                    <button class="btn-success btn-action" onclick="alterarStatusTarefa(${t.id}, 'executado')">✓ Concluído</button>
+                    <button class="btn-success btn-action" onclick="alterarStatusTarefa(${t.id}, 'executado')">✓ Executado</button>
                     <button class="btn-warning btn-action" onclick="alterarStatusTarefa(${t.id}, 'pendente')">⚠ Pendente</button>
                     <button class="btn-danger btn-action" onclick="removerTarefa(${t.id})">Excluir</button>
                 </div>
@@ -232,7 +230,7 @@
     }
 
     function removerTarefa(id) {
-        if (confirm("Deseja realmente remover esta atividade?")) {
+        if (confirm("Deseja realmente excluir esta tarefa?")) {
             bancoDadosAgenda = bancoDadosAgenda.filter(t => t.id !== id);
             salvarLocalmente();
             renderizarAgenda();
@@ -245,18 +243,26 @@
 
     async function salvarEAtualizarPelaPlanilha() {
         try {
+            // Reutiliza a estrutura de payload 'dadosLote' esperada pelo script backend original
+            let payload = { agenda: bancoDadosAgenda };
             let formData = new URLSearchParams(); 
-            formData.append("dadosAgenda", JSON.stringify(bancoDadosAgenda));
+            formData.append("dadosLote", JSON.stringify(payload));
 
             await fetch(URL_GOOGLE_API, { 
                 method: "POST", 
                 headers: { "Content-Type": "application/x-www-form-urlencoded" }, 
                 body: formData.toString() 
             });
-            alert("Agenda sincronizada na nuvem com sucesso!");
+            alert("✅ Sincronizado com o Google Apps Script com sucesso!");
         } catch (e) { 
-            alert("⚠️ Não foi possível sincronizar online. Os dados continuam salvos neste dispositivo."); 
+            alert("⚠️ Não foi possível conectar ao servidor online, mas seus dados continuam salvos localmente no dispositivo."); 
         }
+    }
+
+    function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, 
+            tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+        );
     }
 </script>
 </body>
