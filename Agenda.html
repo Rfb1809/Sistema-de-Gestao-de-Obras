@@ -14,10 +14,34 @@
         header h1 { font-size: 26px; margin-bottom: 5px; }
         header p { font-size: 14px; color: #94a3b8; margin-bottom: 15px; }
         
-        #tela-login { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0f172a; z-index: 99999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
-        .login-box { background: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; width: 100%; max-width: 360px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        /* TELA DE LOGIN COM IMAGEM DE FUNDO INCORPORADA */
+        #tela-login { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: linear-gradient(rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.7)), url('fundo.jpg') no-repeat center center;
+            background-size: cover;
+            z-index: 99999; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            flex-direction: column; 
+        }
+        
+        .login-box { 
+            background: rgba(30, 41, 59, 0.92); 
+            backdrop-filter: blur(8px);
+            padding: 30px; 
+            border-radius: 12px; 
+            border: 1px solid rgba(255, 255, 255, 0.1); 
+            width: 100%; 
+            max-width: 360px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6); 
+        }
         .login-box h2 { text-align: center; color: #38bdf8; margin-bottom: 20px; font-size: 22px; }
-        .login-box button { width: 100%; background: #0284c7; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 15px; }
+        .login-box button { width: 100%; background: #0284c7; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 15px; transition: background 0.2s; }
         .login-box button:hover { background: #0369a1; }
 
         .actions-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -392,14 +416,12 @@
             usuarioResponsavel: usuarioLogadoNome 
         };
 
-        // 1. Atualização Instantânea na Tela (0ms)
         bancoDadosAgenda.push(novoItem);
         renderizarAgenda();
 
         document.getElementById("agendaTitulo").value = ""; 
         document.getElementById("agendaPrimeiroTopico").value = "";
 
-        // 2. Envio em segundo plano
         enviarOperacaoPlanilhaAsync({ acao: "salvarItem", item: novoItem });
     }
 
@@ -414,10 +436,7 @@
             tarefa.topicos.push({ id: Date.now(), texto: texto, status: 'pendente' });
             tarefa.descricao = JSON.stringify(tarefa.topicos);
 
-            // Atualização Instantânea na Tela
             renderizarAgenda();
-
-            // Envio em segundo plano
             enviarOperacaoPlanilhaAsync({ acao: "salvarItem", item: tarefa });
         }
     }
@@ -430,10 +449,7 @@
                 topico.status = novoStatus;
                 tarefa.descricao = JSON.stringify(tarefa.topicos);
 
-                // Atualização Instantânea na Tela
                 renderizarAgenda();
-
-                // Envio em segundo plano
                 enviarOperacaoPlanilhaAsync({ acao: "salvarItem", item: tarefa });
             }
         }
@@ -445,10 +461,7 @@
             tarefa.topicos = tarefa.topicos.filter(top => top.id != topicoId);
             tarefa.descricao = JSON.stringify(tarefa.topicos);
 
-            // Atualização Instantânea na Tela
             renderizarAgenda();
-
-            // Envio em segundo plano
             enviarOperacaoPlanilhaAsync({ acao: "salvarItem", item: tarefa });
         }
     }
@@ -457,16 +470,13 @@
         if (confirm("Deseja realmente excluir esta tarefa INTEIRA?")) {
             const idTexto = String(tarefaId);
 
-            // Atualização Instantânea na Tela
             bancoDadosAgenda = bancoDadosAgenda.filter(t => String(t.id) !== idTexto);
             renderizarAgenda();
 
-            // Envio em segundo plano
             enviarOperacaoPlanilhaAsync({ acao: "excluirItem", id: idTexto });
         }
     }
 
-    // ENVIO OTIMIZADO EM SEGUNDO PLANO
     function enviarOperacaoPlanilhaAsync(dados) {
         const statusEl = document.getElementById("syncStatus");
         statusEl.innerText = "⚡ Salvando alterações na planilha...";
