@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agenda & Gestão de Atividades - Google Drive</title>
+    <title>Agenda Multi-Usuário - Google Drive</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         body { background-color: #121824; color: #f8fafc; padding: 15px; }
@@ -44,6 +44,8 @@
         .btn-danger { background-color: #f43f5e; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-action { font-size: 12px; }
 
+        .sync-status { text-align: center; font-size: 12px; margin-top: 5px; color: #38bdf8; }
+
         @media (max-width: 600px) {
             .todo-item { flex-direction: column; align-items: flex-start; gap: 10px; }
             .todo-actions { width: 100%; justify-content: flex-end; }
@@ -69,16 +71,17 @@
 
 <div class="container">
     <header>
-        <h1>Agenda Conectada ao Google Drive</h1>
+        <h1>Agenda Multi-Usuário (Google Drive)</h1>
         <p>Usuário Ativo: <strong id="usuarioLogadoTitulo" style="color: #38bdf8;">-</strong></p>
         
         <div class="actions-bar">
-            <button class="btn-save-cloud" onclick="salvarNaPlanilhaDrive(true)">💾 Sincronizar na Planilha</button>
+            <button class="btn-save-cloud" onclick="carregarDadosDaPlanilha(true)">🔄 Atualizar Dados</button>
             <button class="btn-logoff" onclick="logoff()">🚪 Sair (Logoff)</button>
         </div>
+        <div id="syncStatus" class="sync-status"></div>
     </header>
 
-    <!-- FORMULÁRIO DE TAREFAS -->
+    <!-- FORMULÁRIO -->
     <div class="card">
         <h2>📝 Nova Atividade / Tarefa</h2>
         <form id="formAgenda" onsubmit="adicionarTarefa(event)">
@@ -98,11 +101,11 @@
                     <textarea id="agendaDescricao" placeholder="Escreva observações..." rows="3"></textarea>
                 </div>
             </div>
-            <button type="submit" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Adicionar à Agenda</button>
+            <button type="submit" id="btnSalvar" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Adicionar e Salvar na Planilha</button>
         </form>
     </div>
 
-    <!-- LISTAGEM -->
+    <!-- LISTA -->
     <div class="card">
         <h2>📋 Atividades Agendadas para <span id="agendaDataSelecionada" style="color:#38bdf8"></span></h2>
         <div id="listaTarefas" style="margin-top: 15px;"></div>
@@ -113,7 +116,7 @@
     const URL_GOOGLE_API = "https://script.google.com/macros/s/AKfycbwkHnxN7KDRYwSAblzNFAOdeIPCPAkjmYmN0nn9wliHgBOI8PpogRtU1H82Z8ScRN3B/exec";
     
     let usuarioLogadoNome = "";
-    let bancoDadosAgenda = JSON.parse(localStorage.getItem('bancoDadosAgenda')) || [];
+    let bancoDadosAgenda = [];
 
     async function checarLogin() {
         const u = document.getElementById("userInput").value.trim();
@@ -137,8 +140,10 @@
                 btn.innerText = "Entrar"; 
             }
         } catch (e) { 
-            console.warn("Sem acesso ao Google Script no momento. Entrando no modo local:", e);
-            iniciarSessao(u);
+            console.warn("Falha na autenticação online:", e);
+            btn.disabled = false;
+            btn.innerText = "Entrar";
+            alert("Erro de conexão com a planilha.");
         }
     }
 
@@ -148,21 +153,30 @@
         document.getElementById("usuarioLogadoTitulo").innerText = usuarioLogadoNome;
         document.getElementById('agendaData').valueAsDate = new Date();
         
-        await carregarDadosDaPlanilha();
-        renderizarAgenda();
+        await carregarDadosDaPlanilha(false);
+        
+        // Auto-sincronização de leitura a cada 30 segundos para puxar novos lançamentos de outros acessos
+        setInterval(() => { carregarDadosDaPlanilha(false); }, 30000);
     }
 
-    async function carregarDadosDaPlanilha() {
+    async function carregarDadosDaPlanilha(manual) {
+        const statusEl = document.getElementById("syncStatus");
+        if (manual) statusEl.innerText = "Buscando dados da planilha...";
+
         try {
             let res = await fetch(URL_GOOGLE_API + "?acao=lerDados");
             let json = await res.json();
             if (json.agenda && Array.isArray(json.agenda)) {
                 bancoDadosAgenda = json.agenda;
-                salvarLocalmente();
+                renderizarAgenda();
+                if (manual) statusEl.innerText = "✅ Atualizado com sucesso!";
             }
         } catch (e) {
-            console.error("Erro ao sincronizar leitura do Drive.", e);
+            console.error("Erro ao buscar dados do Google Drive.", e);
+            if (manual) statusEl.innerText = "❌ Erro ao atualizar.";
         }
+        
+        setTimeout(() => { statusEl.innerText = ""; }, 4000);
     }
 
     function logoff() {
@@ -184,6 +198,7 @@
         const lista = document.getElementById("listaTarefas"); 
         lista.innerHTML = "";
 
+        // Mostra os itens cadastrados para o usuário ativo na data selecionada
         const tarefasDia = bancoDadosAgenda.filter(t => t.data === dataInput && t.usuarioResponsavel === usuarioLogadoNome);
 
         if (tarefasDia.length === 0) {
@@ -209,76 +224,76 @@
         });
     }
 
-    function adicionarTarefa(e) {
+    async function adicionarTarefa(e) {
         e.preventDefault();
         const data = document.getElementById("agendaData").value;
         const titulo = document.getElementById("agendaTitulo").value.trim();
         const descricao = document.getElementById("agendaDescricao").value.trim();
+        const btn = document.getElementById("btnSalvar");
 
         if (!data || !titulo) return;
 
-        bancoDadosAgenda.push({ 
+        const novoItem = { 
             id: Date.now(), 
             data, 
             titulo, 
             descricao, 
             status: 'pendente', 
             usuarioResponsavel: usuarioLogadoNome 
-        });
+        };
 
-        salvarLocalmente();
-        document.getElementById("agendaTitulo").value = ""; 
-        document.getElementById("agendaDescricao").value = "";
-        renderizarAgenda();
-        salvarNaPlanilhaDrive(false);
-    }
+        btn.disabled = true;
+        btn.innerText = "Salvando na planilha...";
 
-    function alterarStatusTarefa(id, status) {
-        bancoDadosAgenda = bancoDadosAgenda.map(t => { 
-            if (t.id === id) t.status = status; 
-            return t; 
-        });
-        salvarLocalmente();
-        renderizarAgenda();
-        salvarNaPlanilhaDrive(false);
-    }
+        let salvo = await enviarOperacaoPlanilha({ acao: "salvarItem", item: novoItem });
 
-    function removerTarefa(id) {
-        if (confirm("Deseja realmente excluir esta tarefa?")) {
-            bancoDadosAgenda = bancoDadosAgenda.filter(t => t.id !== id);
-            salvarLocalmente();
-            renderizarAgenda();
-            salvarNaPlanilhaDrive(false);
+        btn.disabled = false;
+        btn.innerText = "+ Adicionar e Salvar na Planilha";
+
+        if (salvo) {
+            document.getElementById("agendaTitulo").value = ""; 
+            document.getElementById("agendaDescricao").value = "";
+            await carregarDadosDaPlanilha(false);
+        } else {
+            alert("⚠️ Não foi possível salvar na planilha. Tente novamente.");
         }
     }
 
-    function salvarLocalmente() {
-        localStorage.setItem('bancoDadosAgenda', JSON.stringify(bancoDadosAgenda));
+    async function alterarStatusTarefa(id, status) {
+        let item = bancoDadosAgenda.find(t => t.id == id);
+        if (item) {
+            item.status = status;
+            await enviarOperacaoPlanilha({ acao: "salvarItem", item: item });
+            await carregarDadosDaPlanilha(false);
+        }
     }
 
-    async function salvarNaPlanilhaDrive(notificar) {
+    async function removerTarefa(id) {
+        if (confirm("Deseja realmente excluir esta tarefa da planilha?")) {
+            await enviarOperacaoPlanilha({ acao: "excluirItem", id: id });
+            await carregarDadosDaPlanilha(false);
+        }
+    }
+
+    async function enviarOperacaoPlanilha(dados) {
         try {
-            let payload = { agenda: bancoDadosAgenda };
-            let formData = new URLSearchParams(); 
-            formData.append("dadosLote", JSON.stringify(payload));
-
-            await fetch(URL_GOOGLE_API, { 
+            let response = await fetch(URL_GOOGLE_API, { 
                 method: "POST", 
-                headers: { "Content-Type": "application/x-www-form-urlencoded" }, 
-                body: formData.toString() 
+                headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+                body: JSON.stringify(dados) 
             });
-
-            if (notificar) alert("✅ Dados sincronizados na planilha do Google Drive com sucesso!");
+            let result = await response.json();
+            return result.status === "sucesso";
         } catch (e) { 
-            console.error("Erro ao sincronizar com Google Drive:", e);
-            if (notificar) alert("⚠️ Erro de sincronização. Seus dados continuam salvos neste dispositivo.");
+            console.error("Erro no envio:", e);
+            return false;
         }
     }
 
     function escapeHTML(str) {
-        return str.replace(/[&<>'"]/g, 
+        return str ? String(str).replace(/[&<>'"]/g, 
             tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-        );
+        ) : "";
     }
 </script>
 </body>
