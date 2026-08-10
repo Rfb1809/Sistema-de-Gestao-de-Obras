@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agenda Ultra Rápida - Google Drive</title>
+    <title>Agenda Multi-Usuário - Google Drive</title>
     <!-- Chart.js para renderização do Gráfico -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -14,14 +14,15 @@
         header h1 { font-size: 26px; margin-bottom: 5px; }
         header p { font-size: 14px; color: #94a3b8; margin-bottom: 15px; }
         
-        /* TELA DE LOGIN COM IMAGEM COMPATÍVEL COM GITHUB PAGES */
+        /* TELA DE LOGIN COM IMAGEM DE FUNDO EMBUTIDA EM BASE64 */
         #tela-login { 
             position: fixed; 
             top: 0; 
             left: 0; 
             width: 100%; 
             height: 100%; 
-            background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.75)), url('./fundo.jpg') no-repeat center center;
+            background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.75)), 
+                        url('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAADcAAAAABAAAAAAAAB3YWdaAAAAFAAAABlhYWdnAAAAFAAAAB1yWFlaAAAAFAAAACRnWFlaAAAAFAAAAChuWFlaAAAAFAAAACx3dHB0AAAAFAAAADRjcHJ0AAAAFAAAADhkZXNjAAAAFAAAAE93d3J0AAAAFAAAAGRYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXN1cnYAAAAAAAABACAAAAAAAAAAY3VydgAAAAAAAAABAc0AAHN1cnYAAAAAAAABACAAAAAAAAAAY3VydgAAAAAAAAABAc0AAHN1cnYAAAAAAAABACAAAAAAAAAAY3VydgAAAAAAAAABAc0AAA==') no-repeat center center;
             background-size: cover;
             z-index: 99999; 
             display: flex; 
@@ -31,12 +32,12 @@
         }
         
         .login-box { 
-            background: rgba(30, 41, 59, 0.85); 
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: rgba(30, 41, 59, 0.88); 
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             padding: 30px; 
             border-radius: 12px; 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
+            border: 1px solid rgba(255, 255, 255, 0.12); 
             width: 100%; 
             max-width: 360px; 
             box-shadow: 0 15px 35px rgba(0,0,0,0.6); 
