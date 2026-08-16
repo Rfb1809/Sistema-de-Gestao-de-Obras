@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Integrado — Lupo Araraquara</title>
+    <title>Trend Controls — Relatório de Reembolso</title>
     <style>
         :root {
             --background: #0f172a;
@@ -49,13 +49,8 @@
             font-size: 14px; font-weight: bold; border-radius: 6px;
             cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
         }
-        .tab-button:hover {
-            color: var(--text); background: rgba(56, 189, 248, 0.1);
-        }
-        .tab-button.active {
-            color: #0f172a; background: var(--primary);
-            border-color: var(--primary);
-        }
+        .tab-button:hover { color: var(--text); background: rgba(56, 189, 248, 0.1); }
+        .tab-button.active { color: #0f172a; background: var(--primary); border-color: var(--primary); }
 
         /* CONTEÚDO DAS ABAS */
         .tab-content { display: none; }
@@ -91,7 +86,7 @@
         .dinamic-table tr.weekend-row { background-color: var(--weekend-bg) !important; color: var(--weekend-text) !important; }
         .dinamic-table tr.weekend-row input { color: var(--weekend-text) !important; border-color: rgba(244, 63, 94, 0.3); }
 
-        /* SIDE PANEL (BALANÇO) */
+        /* BALANÇO */
         .balanco-box { background: var(--input-bg); border-radius: 6px; border: 1px solid var(--border); padding: 15px; margin-top: 15px; }
         .balanco-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
         .balanco-row.total { font-size: 18px; font-weight: bold; border-top: 1px dashed var(--border); padding-top: 10px; color: var(--success); }
@@ -108,7 +103,7 @@
         /* PREVIEW DE ANEXO */
         .preview-img { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; }
 
-        /* LISTA DE TAREFAS (AGENDA) */
+        /* AGENDA */
         .todo-item {
             display: flex; justify-content: space-between; align-items: center;
             padding: 12px; border-bottom: 1px solid var(--border); background: var(--input-bg);
@@ -120,14 +115,33 @@
         .todo-item-info p { font-size: 12px; color: var(--text-secondary); }
         .todo-actions { display: flex; gap: 8px; }
 
-        /* AREA DE IMPRESSÃO / PDF NATIVO */
-        #printable-area { display: none; }
+        /* ESTILOS DE IMPRESSÃO / OCULTA URL, CABEÇALHOS E TITULOS DO SISTEMA NO PDF */
+        #relatorioPDF { display: none; }
 
         @media print {
-            body { background: #ffffff !important; color: #1e293b !important; padding: 0 !important; }
+            /* Oculta tudo que não pertence ao relatório */
+            body * { visibility: hidden !important; }
             .container { display: none !important; }
-            #printable-area { display: block !important; width: 100% !important; background: #ffffff !important; color: #1e293b !important; }
-            @page { margin: 10mm; size: A4; }
+
+            /* Exibe estritamente o papel do relatório */
+            #relatorioPDF, #relatorioPDF * { visibility: visible !important; }
+            #relatorioPDF {
+                display: block !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                padding: 15mm !important;
+                margin: 0 !important;
+            }
+
+            /* Remove os cabeçalhos/rodapés padrão do navegador (URL, Título da Página, Data) */
+            @page {
+                size: A4 portrait;
+                margin: 0;
+            }
         }
     </style>
 </head>
@@ -335,14 +349,67 @@
 
             <div class="card">
                 <h2>💡 Resumo Geral da Agenda</h2>
-                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">Use o painel para organizar as atividades na obra diária da Lupo Araraquara. Você pode marcar cada tarefa como "Executada" para controle ou removêlas quando necessário.</p>
+                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">Use o painel para organizar as atividades na obra diária da Lupo Araraquara. Você pode marcar cada tarefa como "Executada" para controle ou removê-las quando necessário.</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- CONTAINER EXCLUSIVO PARA IMPRESSÃO/SALVAR PDF SEM TELAS BRANCAS -->
-<div id="printable-area"></div>
+<!-- ESTRUTURA DIRETA DO RELATÓRIO PDF (LIMPO DE CABEÇALHOS DO NAVEGADOR) -->
+<div id="relatorioPDF">
+    <div style="border-bottom:3px solid #0284c7; padding-bottom:10px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <h2 style="color:#0284c7; margin:0; font-size:20px; font-weight:bold; border:none; padding:0;">Trend Controls — Relatório de Reembolso</h2>
+            <p style="font-size:12px; color:#64748b; margin:2px 0 0 0;">Prestação de Contas e Despesas de Obra</p>
+        </div>
+        <div style="text-align:right; font-size:12px; color:#1e293b;">
+            <p><strong>Obra:</strong> <span id="pdfObra"></span></p>
+            <p><strong>Emissão:</strong> <span id="pdfDataEmissao"></span></p>
+        </div>
+    </div>
+
+    <table style="width:100%; margin-bottom:20px; font-size:12px; background:#f8fafc; border:1px solid #cbd5e1; border-collapse:collapse; color:#1e293b;" cellpadding="6">
+        <tr style="background:#cbd5e1; font-weight:bold; color:#1e293b;"><td colspan="4">📋 IDENTIFICAÇÃO DO COLABORADOR</td></tr>
+        <tr>
+            <td><strong>Colaborador:</strong> <span id="pdfColaborador"></span></td>
+            <td><strong>Banco:</strong> <span id="pdfBanco"></span></td>
+            <td><strong>Agência:</strong> <span id="pdfAgencia"></span></td>
+            <td><strong>Conta:</strong> <span id="pdfConta"></span></td>
+        </tr>
+        <tr><td colspan="4"><strong>CPF para Transferência:</strong> <span id="pdfCpf"></span></td></tr>
+    </table>
+
+    <h3 style="color:#0284c7; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:15px; margin-bottom:10px; font-weight:bold;">📊 DEMONSTRATIVO DE CUSTOS LANÇADOS</h3>
+    <table style="width:100%; font-size:12px; border-collapse:collapse; color:#1e293b;" cellpadding="6">
+        <thead>
+            <tr style="background:#f1f5f9; font-weight:bold;">
+                <th style="text-align:left; border-bottom:2px solid #cbd5e1;">Data</th>
+                <th style="text-align:left; border-bottom:2px solid #cbd5e1;">Categoria</th>
+                <th style="text-align:left; border-bottom:2px solid #cbd5e1;">Descrição / Detalhe</th>
+                <th style="text-align:right; border-bottom:2px solid #cbd5e1; width:110px;">Valor</th>
+            </tr>
+        </thead>
+        <tbody id="pdfCorpoTabela"></tbody>
+    </table>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+        <table style="width:300px; font-size:12px; border-collapse:collapse; color:#1e293b;" cellpadding="6">
+            <tr><td style="border-bottom:1px solid #e2e8f0; color:#64748b;">Adiantamento Recebido:</td><td style="text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;" id="pdfAdiantamento">R$ 0,00</td></tr>
+            <tr><td style="border-bottom:1px solid #e2e8f0; color:#64748b;">Total de Despesas:</td><td style="text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;" id="pdfTotalDespesas">R$ 0,00</td></tr>
+            <tr id="pdfLinhaSaldo" style="font-size:13px; font-weight:bold;">
+                <td style="border-radius:4px 0 0 4px; padding:8px;" id="pdfLabelSaldo">SALDO:</td>
+                <td style="text-align:right; border-radius:0 4px 4px 0; padding:8px;" id="pdfValorSaldo">R$ 0,00</td>
+            </tr>
+        </table>
+    </div>
+
+    <div id="pdfAnexosContainer"></div>
+
+    <div style="margin-top:40px; display:flex; justify-content:space-around; text-align:center; font-size:11px; color:#64748b;">
+        <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Assinatura do Colaborador</div>
+        <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Aprovação Financeiro/Gerência</div>
+    </div>
+</div>
 
 <script>
     let lancamentos = [];
@@ -460,7 +527,6 @@
         calcularTotais();
     }
 
-    /* EXPORTAÇÃO IMPRESSÃO NATIVA / SALVAR EM PDF (MÓVEL E DESKTOP) */
     function exportarRelatorioParaPDF() {
         const colaborador = document.getElementById("colaborador").value;
         const obra = document.getElementById("obra").value;
@@ -469,93 +535,73 @@
         lancamentos.forEach(item => totalDespesas += item.valor);
         const saldo = totalDespesas - adiantamento;
 
-        const printable = document.getElementById("printable-area");
+        // Preenche campos
+        document.getElementById("pdfColaborador").innerText = colaborador;
+        document.getElementById("pdfObra").innerText = obra;
+        document.getElementById("pdfBanco").innerText = document.getElementById("banco").value;
+        document.getElementById("pdfAgencia").innerText = document.getElementById("agencia").value;
+        document.getElementById("pdfConta").innerText = document.getElementById("conta").value;
+        document.getElementById("pdfCpf").innerText = document.getElementById("cpf").value;
+        document.getElementById("pdfDataEmissao").innerText = new Date().toLocaleDateString('pt-BR');
 
-        let rowsHTML = "";
+        // Preenche tabela
+        const pdfCorpo = document.getElementById("pdfCorpoTabela");
+        pdfCorpo.innerHTML = "";
+
         if (lancamentos.length > 0) {
             lancamentos.forEach(item => {
-                rowsHTML += `
-                    <tr>
-                        <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; color:#1e293b;">${item.data.toLocaleDateString("pt-BR")}</td>
-                        <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; font-weight:bold; color:#0284c7;">${item.categoria}</td>
-                        <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; color:#1e293b;">${item.descricao}</td>
-                        <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; text-align:right; font-weight:bold; color:#1e293b;">R$ ${item.valor.toFixed(2).replace(".", ",")}</td>
-                    </tr>`;
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; color:#1e293b;">${item.data.toLocaleDateString("pt-BR")}</td>
+                    <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; font-weight:bold; color:#0284c7;">${item.categoria}</td>
+                    <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; color:#1e293b;">${item.descricao}</td>
+                    <td style="padding:8px; border-bottom:1px solid #cbd5e1; font-size:12px; text-align:right; font-weight:bold; color:#1e293b;">R$ ${item.valor.toFixed(2).replace(".", ",")}</td>
+                `;
+                pdfCorpo.appendChild(tr);
             });
         } else {
-            rowsHTML = '<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b; font-size:12px;">Nenhuma despesa registrada.</td></tr>';
+            pdfCorpo.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b; font-size:12px;">Nenhuma despesa registrada.</td></tr>';
         }
 
-        let anexosHTML = "";
+        // Totais
+        document.getElementById("pdfAdiantamento").innerText = `R$ ${adiantamento.toFixed(2).replace(".", ",")}`;
+        document.getElementById("pdfTotalDespesas").innerText = `R$ ${totalDespesas.toFixed(2).replace(".", ",")}`;
+        
+        const linhaSaldo = document.getElementById("pdfLinhaSaldo");
+        const labelSaldo = document.getElementById("pdfLabelSaldo");
+        const valorSaldo = document.getElementById("pdfValorSaldo");
+
+        if (saldo >= 0) {
+            labelSaldo.innerText = "SALDO A RECEBER:";
+            valorSaldo.innerText = `R$ ${saldo.toFixed(2).replace(".", ",")}`;
+            linhaSaldo.style.backgroundColor = "#dcfce7";
+            linhaSaldo.style.color = "#15803d";
+        } else {
+            labelSaldo.innerText = "SALDO A DEVOLVER:";
+            valorSaldo.innerText = `R$ ${Math.abs(saldo).toFixed(2).replace(".", ",")}`;
+            linhaSaldo.style.backgroundColor = "#fee2e2";
+            linhaSaldo.style.color = "#b91c1c";
+        }
+
+        // Anexos
+        const anexosDiv = document.getElementById("pdfAnexosContainer");
+        anexosDiv.innerHTML = "";
         const itensComFoto = lancamentos.filter(item => item.imagem);
+
         if (itensComFoto.length > 0) {
-            anexosHTML = `<h3 style="color:#0284c7; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:30px; margin-bottom:15px; font-weight:bold;">📸 COMPROVANTES E RECIBOS ANEXOS</h3><div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:15px;">`;
+            let htmlAnexos = `<h3 style="color:#0284c7; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:30px; margin-bottom:15px; font-weight:bold;">📸 COMPROVANTES E RECIBOS ANEXOS</h3><div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:15px;">`;
             itensComFoto.forEach(item => {
-                anexosHTML += `
-                    <div style="border:1px solid #cbd5e1; padding:8px; border-radius:4px; text-align:center; page-break-inside:avoid;">
+                htmlAnexos += `
+                    <div style="border:1px solid #cbd5e1; padding:8px; border-radius:4px; text-align:center;">
                         <p style="font-size:10px; color:#64748b; margin-bottom:5px;"><strong>${item.data.toLocaleDateString("pt-BR")}</strong> - ${item.categoria}</p>
-                        <img src="${item.imagem}" style="max-width:100%; max-height:220px; object-fit:contain;">
+                        <img src="${item.imagem}" style="max-width:100%; max-height:200px; object-fit:contain;">
                     </div>`;
             });
-            anexosHTML += `</div>`;
+            htmlAnexos += `</div>`;
+            anexosDiv.innerHTML = htmlAnexos;
         }
 
-        printable.innerHTML = `
-            <div style="background:#ffffff; color:#1e293b; padding:10px; font-family:sans-serif;">
-                <div style="border-bottom:3px solid #0284c7; padding-bottom:10px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                        <h2 style="color:#0284c7; margin:0; font-size:22px; font-weight:bold; border:none; padding:0;">Trend Controls — Relatório de Reembolso</h2>
-                        <p style="font-size:12px; color:#64748b; margin:2px 0 0 0;">Prestação de Contas e Despesas de Obra</p>
-                    </div>
-                    <div style="text-align:right; font-size:12px; color:#1e293b;">
-                        <p><strong>Obra:</strong> ${obra}</p>
-                        <p><strong>Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-                    </div>
-                </div>
-                <table style="width:100%; margin-bottom:20px; font-size:12px; background:#f8fafc; border:1px solid #cbd5e1; border-collapse:collapse; color:#1e293b;" cellpadding="6">
-                    <tr style="background:#cbd5e1; font-weight:bold; color:#1e293b;"><td colspan="4">📋 IDENTIFICAÇÃO DO COLABORADOR</td></tr>
-                    <tr>
-                        <td><strong>Colaborador:</strong> ${colaborador}</td>
-                        <td><strong>Banco:</strong> ${document.getElementById("banco").value}</td>
-                        <td><strong>Agência:</strong> ${document.getElementById("agencia").value}</td>
-                        <td><strong>Conta:</strong> ${document.getElementById("conta").value}</td>
-                    </tr>
-                    <tr><td colspan="4"><strong>CPF para Transferência:</strong> ${document.getElementById("cpf").value}</td></tr>
-                </table>
-                <h3 style="color:#0284c7; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:15px; margin-bottom:10px; font-weight:bold;">📊 DEMONSTRATIVO DE CUSTOS LANÇADOS</h3>
-                <table style="width:100%; font-size:12px; border-collapse:collapse; color:#1e293b;" cellpadding="6">
-                    <thead>
-                        <tr style="background:#f1f5f9; font-weight:bold;">
-                            <th style="text-align:left; border-bottom:2px solid #cbd5e1;">Data</th>
-                            <th style="text-align:left; border-bottom:2px solid #cbd5e1;">Categoria</th>
-                            <th style="text-align:left; border-bottom:2px solid #cbd5e1;">Descrição / Detalhe</th>
-                            <th style="text-align:right; border-bottom:2px solid #cbd5e1; width:110px;">Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHTML}</tbody>
-                </table>
-                <div style="display:flex; justify-content:flex-end; margin-top:20px; page-break-inside:avoid;">
-                    <table style="width:320px; font-size:13px; border-collapse:collapse; color:#1e293b;" cellpadding="6">
-                        <tr><td style="border-bottom:1px solid #e2e8f0; color:#64748b;">Adiantamento Recebido:</td><td style="text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;">R$ ${adiantamento.toFixed(2).replace(".", ",")}</td></tr>
-                        <tr><td style="border-bottom:1px solid #e2e8f0; color:#64748b;">Total de Despesas:</td><td style="text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;">R$ ${totalDespesas.toFixed(2).replace(".", ",")}</td></tr>
-                        <tr style="background:${saldo >= 0 ? '#dcfce7' : '#fee2e2'}; color:${saldo >= 0 ? '#15803d' : '#b91c1c'}; font-size:14px; font-weight:bold;">
-                            <td style="border-radius:4px 0 0 4px; padding:8px;">${saldo >= 0 ? 'SALDO A RECEBER:' : 'SALDO A DEVOLVER:'}</td>
-                            <td style="text-align:right; border-radius:0 4px 4px 0; padding:8px;">R$ ${Math.abs(saldo).toFixed(2).replace(".", ",")}</td>
-                        </tr>
-                    </table>
-                </div>
-                ${anexosHTML}
-                <div style="margin-top:40px; display:flex; justify-content:space-around; text-align:center; font-size:11px; color:#64748b; page-break-inside:avoid;">
-                    <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Assinatura do Colaborador</div>
-                    <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Aprovação Financeiro/Gerência</div>
-                </div>
-            </div>
-        `;
-
-        // Dispara a caixa de geração/impressão de PDF do próprio sistema operacional do celular
-        setTimeout(() => {
-            window.print();
-        }, 150);
+        window.print();
     }
 
     function verificarSeEhFeriado(dataObj) {
