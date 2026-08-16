@@ -19,7 +19,6 @@
             --danger: #f43f5e;
             --warning: #f59e0b;
             --input-bg: #0f172a;
-            /* Nova cor para destaque de fins de semana/feriados */
             --weekend-bg: rgba(244, 63, 94, 0.15);
             --weekend-text: #fda4af;
         }
@@ -43,12 +42,13 @@
         .tabs-menu {
             display: flex; gap: 10px; margin-bottom: 25px;
             border-bottom: 2px solid var(--border); padding-bottom: 10px;
+            overflow-x: auto;
         }
         .tab-button {
             background: var(--surface); color: var(--text-secondary);
             border: 1px solid var(--border); padding: 12px 24px;
             font-size: 14px; font-weight: bold; border-radius: 6px;
-            cursor: pointer; transition: all 0.2s ease;
+            cursor: pointer; transition: all 0.2s ease; white-space: nowrap;
         }
         .tab-button:hover {
             color: var(--text); background: rgba(56, 189, 248, 0.1);
@@ -89,7 +89,6 @@
         .dinamic-table th { background: var(--input-bg); color: var(--text-secondary); font-weight: bold; }
         .dinamic-table tr:hover { background: rgba(255,255,255,0.02); }
 
-        /* Estilo especial para finais de semana e feriados */
         .dinamic-table tr.weekend-row { background-color: var(--weekend-bg) !important; color: var(--weekend-text) !important; }
         .dinamic-table tr.weekend-row input { color: var(--weekend-text) !important; border-color: rgba(244, 63, 94, 0.3); }
 
@@ -228,19 +227,21 @@
 
                 <div class="card">
                     <h2>📊 Extrato de Despesas Lançadas (Ordem Cronológica)</h2>
-                    <table class="dinamic-table" id="tabelaDespesas">
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Categoria</th>
-                                <th>Descrição / Detalhamento</th>
-                                <th>Anexo</th>
-                                <th>Valor</th>
-                                <th style="width: 80px;">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="corpoTabela"></tbody>
-                    </table>
+                    <div style="overflow-x: auto;">
+                        <table class="dinamic-table" id="tabelaDespesas">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Categoria</th>
+                                    <th>Descrição / Detalhamento</th>
+                                    <th>Anexo</th>
+                                    <th>Valor</th>
+                                    <th style="width: 80px;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="corpoTabela"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -261,7 +262,7 @@
                             <span id="balAncValor">R$ 0,00</span>
                         </div>
                     </div>
-                    <button type="button" style="margin-top: 15px;" onclick="exportarRelatorioParaPDF()">🖨️ Exportar Planilha em PDF</button>
+                    <button type="button" id="btnExportPDF" style="margin-top: 15px;" onclick="exportarRelatorioParaPDF()">🖨️ Exportar Planilha em PDF</button>
                 </div>
             </div>
         </div>
@@ -284,8 +285,7 @@
                             <th>Observações / Justificativas</th>
                         </tr>
                     </thead>
-                    <tbody id="corpoPonto">
-                        </tbody>
+                    <tbody id="corpoPonto"></tbody>
                 </table>
             </div>
             <button type="button" class="btn-success" style="margin-top: 20px; width: 250px;" onclick="salvarFolhaPonto()">💾 Salvar Folha de Ponto</button>
@@ -320,8 +320,7 @@
 
                 <div class="card">
                     <h2>📋 Serviços Agendados para o Dia <span id="agendaDataSelecionada" style="color:var(--primary)"></span></h2>
-                    <div id="listaTarefas" style="margin-top: 15px;">
-                        </div>
+                    <div id="listaTarefas" style="margin-top: 15px;"></div>
                 </div>
             </div>
 
@@ -340,24 +339,13 @@
     let bancoDadosPonto = JSON.parse(localStorage.getItem('bancoDadosPonto')) || {};
     let bancoDadosAgenda = JSON.parse(localStorage.getItem('bancoDadosAgenda')) || [];
 
-    // Feriados Nacionais Fixos e Variáveis de Referência (Simplificados para validação padrão no Brasil)
     const feriadosFixos = [
-        "01-01", // Ano Novo
-        "04-21", // Tiradentes
-        "05-01", // Dia do Trabalho
-        "09-07", // Independência
-        "10-12", // Nsa. Senhora Aparecida
-        "11-02", // Finados
-        "11-15", // Proclamação da República
-        "11-20", // Consciência Negra
-        "12-25"  // Natal
+        "01-01", "04-21", "05-01", "09-07", "10-12", "11-02", "11-15", "11-20", "12-25"
     ];
 
-    // Inicialização de Datas nos Formulários
     document.getElementById('notaData').valueAsDate = new Date();
     document.getElementById('agendaData').valueAsDate = new Date();
 
-    // GERENCIAMENTO DE ABAS
     function switchTab(tabId, btnElement) {
         document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
@@ -367,7 +355,7 @@
     }
 
     /* ==========================================================================
-       ABA 1: REEMBOLSO (FUNCIONALIDADES)
+       ABA 1: REEMBOLSO
        ========================================================================== */
     function processarFoto(input) {
         if (input.files && input.files[0]) {
@@ -464,8 +452,12 @@
         calcularTotais();
     }
 
-    // PDF Export (Corrigido para evitar página em branco)
+    /* PDF EXPORT COMPATÍVEL COM MOBILE & DESKTOP */
     function exportarRelatorioParaPDF() {
+        const btn = document.getElementById("btnExportPDF");
+        btn.innerText = "⏳ Gerando PDF...";
+        btn.disabled = true;
+
         const colaborador = document.getElementById("colaborador").value;
         const obra = document.getElementById("obra").value;
         const adiantamento = parseFloat(document.getElementById("adiantamento").value) || 0;
@@ -473,17 +465,16 @@
         lancamentos.forEach(item => totalDespesas += item.valor);
         const saldo = totalDespesas - adiantamento;
 
+        // Container Visível Temporário no Topo do DOM para renderização sem falhas mobile
         const f = document.createElement('div');
-        // Ajuste de posicionamento sem jogar fora da tela visível para o html2canvas
-        f.style.position = 'fixed';
+        f.style.position = 'absolute';
         f.style.top = '0';
         f.style.left = '0';
-        f.style.width = '790px';
-        f.style.padding = '35px';
+        f.style.width = '750px';
+        f.style.padding = '30px';
         f.style.backgroundColor = '#ffffff';
         f.style.color = '#1e293b';
-        f.style.zIndex = '-9999';
-        f.style.opacity = '1';
+        f.style.zIndex = '999999';
 
         let rowsHTML = "";
         if (lancamentos.length > 0) {
@@ -503,12 +494,12 @@
         let anexosHTML = "";
         const itensComFoto = lancamentos.filter(item => item.imagem);
         if (itensComFoto.length > 0) {
-            anexosHTML = `<h3 style="color:#2563eb; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:35px; margin-bottom:15px; font-weight:bold;">📸 COMPROVANTES E RECIBOS ANEXOS</h3><div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:15px;">`;
+            anexosHTML = `<h3 style="color:#2563eb; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:30px; margin-bottom:15px; font-weight:bold;">📸 COMPROVANTES E RECIBOS ANEXOS</h3><div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:15px;">`;
             itensComFoto.forEach(item => {
                 anexosHTML += `
                     <div style="border:1px solid #cbd5e1; padding:8px; border-radius:4px; text-align:center;">
                         <p style="font-size:10px; color:#64748b; margin-bottom:5px;"><strong>${item.data.toLocaleDateString("pt-BR")}</strong> - ${item.categoria}</p>
-                        <img src="${item.imagem}" style="width:100%; height:200px; object-fit:contain;">
+                        <img src="${item.imagem}" style="max-width:100%; max-height:220px; object-fit:contain;">
                     </div>`;
             });
             anexosHTML += `</div>`;
@@ -517,7 +508,7 @@
         f.innerHTML = `
             <div style="border-bottom:3px solid #2563eb; padding-bottom:10px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
                 <div>
-                    <h2 style="color:#2563eb; margin:0; font-size:24px; font-weight:bold;">MONTRECON</h2>
+                    <h2 style="color:#2563eb; margin:0; font-size:22px; font-weight:bold; border:none; padding:0;">MONTRECON</h2>
                     <p style="font-size:12px; color:#64748b; margin:2px 0 0 0;">Relatório de Prestação de Contas e Reembolso</p>
                 </div>
                 <div style="text-align:right; font-size:12px; color:#1e293b;">
@@ -525,7 +516,7 @@
                     <p><strong>Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
                 </div>
             </div>
-            <table style="width:100%; margin-bottom:25px; font-size:12px; background:#f8fafc; border:1px solid #cbd5e1; border-collapse:collapse; color:#1e293b;" cellpadding="6">
+            <table style="width:100%; margin-bottom:20px; font-size:12px; background:#f8fafc; border:1px solid #cbd5e1; border-collapse:collapse; color:#1e293b;" cellpadding="6">
                 <tr style="background:#cbd5e1; font-weight:bold; color:#1e293b;"><td colspan="4">📋 IDENTIFICAÇÃO DO COLABORADOR</td></tr>
                 <tr>
                     <td><strong>Colaborador:</strong> ${colaborador}</td>
@@ -535,7 +526,7 @@
                 </tr>
                 <tr><td colspan="4"><strong>CPF para Transferência:</strong> ${document.getElementById("cpf").value}</td></tr>
             </table>
-            <h3 style="color:#2563eb; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:20px; margin-bottom:10px; font-weight:bold;">📊 DEMONSTRATIVO DE CUSTOS LANÇADOS</h3>
+            <h3 style="color:#2563eb; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:15px; margin-bottom:10px; font-weight:bold;">📊 DEMONSTRATIVO DE CUSTOS LANÇADOS</h3>
             <table style="width:100%; font-size:12px; border-collapse:collapse; color:#1e293b;" cellpadding="6">
                 <thead>
                     <tr style="background:#f1f5f9; font-weight:bold;">
@@ -550,7 +541,7 @@
             <div style="display:flex; justify-content:flex-end; margin-top:20px;">
                 <table style="width:320px; font-size:13px; border-collapse:collapse; color:#1e293b;" cellpadding="6">
                     <tr><td style="border-bottom:1px solid #e2e8f0; color:#64748b;">Adiantamento Recebido:</td><td style="text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;">R$ ${adiantamento.toFixed(2).replace(".", ",")}</td></tr>
-                    <tr><td style="border-bottom:1px solid #e2e8f0; color:#64748b;">Total de Despesas do Período:</td><td style="text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;">R$ ${totalDespesas.toFixed(2).replace(".", ",")}</td></tr>
+                    <tr><td style="border-bottom:1px solid #e2e8f0; color:#64748b;">Total de Despesas:</td><td style="text-align:right; font-weight:bold; border-bottom:1px solid #e2e8f0;">R$ ${totalDespesas.toFixed(2).replace(".", ",")}</td></tr>
                     <tr style="background:${saldo >= 0 ? '#dcfce7' : '#fee2e2'}; color:${saldo >= 0 ? '#15803d' : '#b91c1c'}; font-size:14px; font-weight:bold;">
                         <td style="border-radius:4px 0 0 4px; padding:8px;">${saldo >= 0 ? 'SALDO A RECEBER:' : 'SALDO A DEVOLVER:'}</td>
                         <td style="text-align:right; border-radius:0 4px 4px 0; padding:8px;">R$ ${Math.abs(saldo).toFixed(2).replace(".", ",")}</td>
@@ -558,16 +549,17 @@
                 </table>
             </div>
             ${anexosHTML}
-            <div style="margin-top:50px; display:flex; justify-content:space-around; text-align:center; font-size:11px; color:#64748b;">
+            <div style="margin-top:40px; display:flex; justify-content:space-around; text-align:center; font-size:11px; color:#64748b;">
                 <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Assinatura do Colaborador</div>
                 <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Aprovação Financeiro/Gerência</div>
             </div>
         `;
 
         document.body.appendChild(f);
+        window.scrollTo(0, 0); // Garante que o scroll esteja no topo para evitar capturas cortadas
 
         const conf = {
-            margin: 10,
+            margin: [8, 8, 8, 8],
             filename: `Relatorio_Reembolso_Lupo_Araraquara.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { 
@@ -575,19 +567,30 @@
                 useCORS: true, 
                 logging: false,
                 scrollX: 0,
-                scrollY: 0
+                scrollY: 0,
+                windowWidth: 800
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
         
+        // Timeout para carregar imagens base64 antes do snapshot
         setTimeout(() => {
-            html2pdf().set(conf).from(f).save().then(() => f.remove());
-        }, 300);
+            html2pdf().set(conf).from(f).save().then(() => {
+                f.remove();
+                btn.innerText = "🖨️ Exportar Planilha em PDF";
+                btn.disabled = false;
+            }).catch(err => {
+                console.error(err);
+                f.remove();
+                btn.innerText = "🖨️ Exportar Planilha em PDF";
+                btn.disabled = false;
+                alert("Ocorreu um erro ao gerar o PDF.");
+            });
+        }, 500);
     }
 
-
     /* ==========================================================================
-       ABA 2: FOLHA DE PONTO (GERAÇÃO DINÂMICA)
+       ABA 2: FOLHA DE PONTO
        ========================================================================== */
     function verificarSeEhFeriado(dataObj) {
         const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
@@ -601,7 +604,6 @@
         const anoAtual = hoje.getFullYear();
         const mesAtual = hoje.getMonth(); 
 
-        // NOVO CICLO: Do dia 20 do mês anterior até o dia 20 do mês atual
         const dataInicio = new Date(anoAtual, mesAtual - 1, 20);
         const dataFim = new Date(anoAtual, mesAtual, 20);
 
@@ -624,19 +626,16 @@
             const diaSemana = diasSemana[diaSemanaNum];
             const dataFmt = `${atual.toLocaleDateString('pt-BR')} (${diaSemana})`;
             
-            // Verifica se é final de semana ou feriado nacional
             const ehFeriado = verificarSeEhFeriado(atual);
             const ehFimDeSemana = (diaSemanaNum === 0 || diaSemanaNum === 6);
             const destacarDia = ehFimDeSemana || ehFeriado;
 
-            // Define se os campos vêm pré-preenchidos (vazio em dias destacados, 7h-17h em dias úteis normais)
             const defaultEnt1 = destacarDia ? "" : "07:00";
             const defaultSai1 = destacarDia ? "" : "12:00";
             const defaultEnt2 = destacarDia ? "" : "13:00";
             const defaultSai2 = destacarDia ? "" : "17:00";
             const defaultObs = ehFeriado ? "Feriado Nacional" : "";
 
-            // Verifica se já existem dados salvos no localStorage, senão aplica as predefinições acima
             const dadosDia = bancoDadosPonto[dataIso] || { 
                 ent1: defaultEnt1, 
                 sai1: defaultSai1, 
@@ -685,9 +684,8 @@
         alert("Folha de Ponto salva localmente com sucesso!");
     }
 
-
     /* ==========================================================================
-       ABA 3: AGENDA DIÁRIA (FUNCIONALIDADES)
+       ABA 3: AGENDA DIÁRIA
        ========================================================================== */
     function renderizarAgenda() {
         const dataSelecionada = document.getElementById("agendaData").value;
@@ -765,7 +763,6 @@
         renderizarAgenda();
     }
 
-    // Inicialização da Tela
     atualizarTela();
 </script>
 </body>
