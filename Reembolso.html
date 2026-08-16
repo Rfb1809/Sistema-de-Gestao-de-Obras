@@ -115,7 +115,7 @@
         .todo-item-info p { font-size: 12px; color: var(--text-secondary); }
         .todo-actions { display: flex; gap: 8px; }
 
-        /* ESTILOS DE IMPRESSÃO / OCULTA URL, CABEÇALHOS E TITULOS DO SISTEMA NO PDF */
+        /* ESTILOS DE IMPRESSÃO / OCULTA ELEMENTOS DO SISTEMA NO PDF */
         #relatorioPDF { display: none; }
 
         @media print {
@@ -131,7 +131,7 @@
                 width: 100% !important;
                 background: #ffffff !important;
                 color: #000000 !important;
-                padding: 15mm !important;
+                padding: 10mm !important;
                 margin: 0 !important;
             }
 
@@ -362,7 +362,7 @@
     </div>
 </div>
 
-<!-- ESTRUTURA DO RELATÓRIO PARA PDF -->
+<!-- RELATÓRIO OTIMIZADO PARA IMPRESSÃO -->
 <div id="relatorioPDF">
     <div style="border-bottom:3px solid #0284c7; padding-bottom:10px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
         <div>
@@ -415,7 +415,6 @@
         <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Aprovação Financeiro/Gerência</div>
     </div>
 
-    <!-- RECEPTÁCULO PARA TODOS OS COMPROVANTES ANEXADOS (SEM LIMITE DE PÁGINAS) -->
     <div id="pdfAnexosContainer"></div>
 </div>
 
@@ -440,13 +439,41 @@
         btnElement.classList.add('active');
     }
 
+    // COMPRESSÃO AUTOMÁTICA DE IMAGEM PARA EVITAR TRAVAMENTOS DE MEMÓRIA NO CELULAR
     function processarFoto(input) {
         if (input.files && input.files[0]) {
+            const arquivo = input.files[0];
             const leitor = new FileReader();
+
             leitor.onload = function(e) {
-                imagemTemporariaBase64 = e.target.result;
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let largura = img.width;
+                    let altura = img.height;
+                    const maxDimensao = 1000; // Reduz fotos gigantes da câmera para no máximo 1000px
+
+                    if (largura > maxDimensao || altura > maxDimensao) {
+                        if (largura > altura) {
+                            altura = Math.round((altura * maxDimensao) / largura);
+                            largura = maxDimensao;
+                        } else {
+                            largura = Math.round((largura * maxDimensao) / altura);
+                            altura = maxDimensao;
+                        }
+                    }
+
+                    canvas.width = largura;
+                    canvas.height = altura;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, largura, altura);
+
+                    // Converte para JPEG com qualidade leve (0.7)
+                    imagemTemporariaBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                };
+                img.src = e.target.result;
             };
-            leitor.readAsDataURL(input.files[0]);
+            leitor.readAsDataURL(arquivo);
         }
     }
 
@@ -543,7 +570,6 @@
         lancamentos.forEach(item => totalDespesas += item.valor);
         const saldo = totalDespesas - adiantamento;
 
-        // Preenche identificações
         document.getElementById("pdfColaborador").innerText = colaborador;
         document.getElementById("pdfObra").innerText = obra;
         document.getElementById("pdfBanco").innerText = document.getElementById("banco").value;
@@ -552,7 +578,6 @@
         document.getElementById("pdfCpf").innerText = document.getElementById("cpf").value;
         document.getElementById("pdfDataEmissao").innerText = new Date().toLocaleDateString('pt-BR');
 
-        // Preenche tabela
         const pdfCorpo = document.getElementById("pdfCorpoTabela");
         pdfCorpo.innerHTML = "";
 
@@ -571,7 +596,6 @@
             pdfCorpo.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:15px; color:#64748b; font-size:12px;">Nenhuma despesa registrada.</td></tr>';
         }
 
-        // Totais
         document.getElementById("pdfAdiantamento").innerText = `R$ ${adiantamento.toFixed(2).replace(".", ",")}`;
         document.getElementById("pdfTotalDespesas").innerText = `R$ ${totalDespesas.toFixed(2).replace(".", ",")}`;
         
@@ -591,7 +615,6 @@
             linhaSaldo.style.color = "#b91c1c";
         }
 
-        // RENDERIZAÇÃO DE TODOS OS ANEXOS (COM SUPORTE A MÚLTIPLAS PÁGINAS)
         const anexosDiv = document.getElementById("pdfAnexosContainer");
         anexosDiv.innerHTML = "";
         const itensComFoto = lancamentos.filter(item => item.imagem);
@@ -616,7 +639,10 @@
             anexosDiv.innerHTML = htmlAnexos;
         }
 
-        window.print();
+        // Aguarda 300ms para liberar a renderização no celular sem travar
+        setTimeout(() => {
+            window.print();
+        }, 300);
     }
 
     function verificarSeEhFeriado(dataObj) {
