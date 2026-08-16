@@ -119,11 +119,9 @@
         #relatorioPDF { display: none; }
 
         @media print {
-            /* Oculta tudo que não pertence ao relatório */
             body * { visibility: hidden !important; }
             .container { display: none !important; }
 
-            /* Exibe estritamente o papel do relatório */
             #relatorioPDF, #relatorioPDF * { visibility: visible !important; }
             #relatorioPDF {
                 display: block !important;
@@ -137,7 +135,16 @@
                 margin: 0 !important;
             }
 
-            /* Remove os cabeçalhos/rodapés padrão do navegador (URL, Título da Página, Data) */
+            .page-break {
+                page-break-before: always !important;
+                break-before: page !important;
+            }
+
+            .anexo-card {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+            }
+
             @page {
                 size: A4 portrait;
                 margin: 0;
@@ -355,7 +362,7 @@
     </div>
 </div>
 
-<!-- ESTRUTURA DIRETA DO RELATÓRIO PDF (LIMPO DE CABEÇALHOS DO NAVEGADOR) -->
+<!-- ESTRUTURA DO RELATÓRIO PARA PDF -->
 <div id="relatorioPDF">
     <div style="border-bottom:3px solid #0284c7; padding-bottom:10px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
         <div>
@@ -403,12 +410,13 @@
         </table>
     </div>
 
-    <div id="pdfAnexosContainer"></div>
-
     <div style="margin-top:40px; display:flex; justify-content:space-around; text-align:center; font-size:11px; color:#64748b;">
         <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Assinatura do Colaborador</div>
         <div style="width:200px;"><div style="border-bottom:1px solid #000; margin-bottom:5px;"></div>Aprovação Financeiro/Gerência</div>
     </div>
+
+    <!-- RECEPTÁCULO PARA TODOS OS COMPROVANTES ANEXADOS (SEM LIMITE DE PÁGINAS) -->
+    <div id="pdfAnexosContainer"></div>
 </div>
 
 <script>
@@ -535,7 +543,7 @@
         lancamentos.forEach(item => totalDespesas += item.valor);
         const saldo = totalDespesas - adiantamento;
 
-        // Preenche campos
+        // Preenche identificações
         document.getElementById("pdfColaborador").innerText = colaborador;
         document.getElementById("pdfObra").innerText = obra;
         document.getElementById("pdfBanco").innerText = document.getElementById("banco").value;
@@ -583,20 +591,27 @@
             linhaSaldo.style.color = "#b91c1c";
         }
 
-        // Anexos
+        // RENDERIZAÇÃO DE TODOS OS ANEXOS (COM SUPORTE A MÚLTIPLAS PÁGINAS)
         const anexosDiv = document.getElementById("pdfAnexosContainer");
         anexosDiv.innerHTML = "";
         const itensComFoto = lancamentos.filter(item => item.imagem);
 
         if (itensComFoto.length > 0) {
-            let htmlAnexos = `<h3 style="color:#0284c7; border-bottom:1px solid #cbd5e1; padding-bottom:4px; font-size:14px; margin-top:30px; margin-bottom:15px; font-weight:bold;">📸 COMPROVANTES E RECIBOS ANEXOS</h3><div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:15px;">`;
-            itensComFoto.forEach(item => {
+            let htmlAnexos = `
+                <div class="page-break"></div>
+                <h3 style="color:#0284c7; border-bottom:2px solid #cbd5e1; padding-bottom:6px; font-size:15px; margin-top:20px; margin-bottom:20px; font-weight:bold;">📸 COMPROVANTES E RECIBOS ANEXADOS (${itensComFoto.length})</h3>
+                <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:20px;">
+            `;
+
+            itensComFoto.forEach((item, index) => {
                 htmlAnexos += `
-                    <div style="border:1px solid #cbd5e1; padding:8px; border-radius:4px; text-align:center;">
-                        <p style="font-size:10px; color:#64748b; margin-bottom:5px;"><strong>${item.data.toLocaleDateString("pt-BR")}</strong> - ${item.categoria}</p>
-                        <img src="${item.imagem}" style="max-width:100%; max-height:200px; object-fit:contain;">
+                    <div class="anexo-card" style="border:1px solid #cbd5e1; padding:10px; border-radius:6px; text-align:center; background:#f8fafc;">
+                        <p style="font-size:11px; color:#475569; margin-bottom:8px; font-weight:bold;">#${index + 1} — ${item.data.toLocaleDateString("pt-BR")} | ${item.categoria}</p>
+                        <p style="font-size:10px; color:#64748b; margin-bottom:8px;">${item.descricao} - <strong>R$ ${item.valor.toFixed(2).replace(".", ",")}</strong></p>
+                        <img src="${item.imagem}" style="width:100%; max-height:280px; object-fit:contain; border-radius:4px; border:1px solid #e2e8f0;">
                     </div>`;
             });
+
             htmlAnexos += `</div>`;
             anexosDiv.innerHTML = htmlAnexos;
         }
