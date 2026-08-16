@@ -464,7 +464,7 @@
         calcularTotais();
     }
 
-    // PDF Export
+    // PDF Export (Corrigido para evitar página em branco)
     function exportarRelatorioParaPDF() {
         const colaborador = document.getElementById("colaborador").value;
         const obra = document.getElementById("obra").value;
@@ -474,8 +474,16 @@
         const saldo = totalDespesas - adiantamento;
 
         const f = document.createElement('div');
-        f.style.position = 'absolute'; f.style.left = '-9999px'; f.style.width = '790px'; f.style.padding = '35px';
-        f.style.backgroundColor = '#ffffff'; f.style.color = '#1e293b';
+        // Ajuste de posicionamento sem jogar fora da tela visível para o html2canvas
+        f.style.position = 'fixed';
+        f.style.top = '0';
+        f.style.left = '0';
+        f.style.width = '790px';
+        f.style.padding = '35px';
+        f.style.backgroundColor = '#ffffff';
+        f.style.color = '#1e293b';
+        f.style.zIndex = '-9999';
+        f.style.opacity = '1';
 
         let rowsHTML = "";
         if (lancamentos.length > 0) {
@@ -557,15 +565,24 @@
         `;
 
         document.body.appendChild(f);
+
         const conf = {
             margin: 10,
             filename: `Relatorio_Reembolso_Lupo_Araraquara.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true, logging: false },
+            html2canvas: { 
+                scale: 2, 
+                useCORS: true, 
+                logging: false,
+                scrollX: 0,
+                scrollY: 0
+            },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
         
-        html2pdf().set(conf).from(f).save().then(() => f.remove());
+        setTimeout(() => {
+            html2pdf().set(conf).from(f).save().then(() => f.remove());
+        }, 300);
     }
 
 
