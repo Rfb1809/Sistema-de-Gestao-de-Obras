@@ -21,7 +21,6 @@
             left: 0; 
             width: 100%; 
             height: 100%; 
-            /* Camada escura reduzida de 0.75 para 0.25 para a imagem ficar mais viva */
             background: linear-gradient(rgba(15, 23, 42, 0.25), rgba(15, 23, 42, 0.25)), url('fundo.jpg') no-repeat center center;
             background-size: cover;
             z-index: 99999; 
@@ -32,9 +31,7 @@
         }
         
         .login-box { 
-            /* Fundo semi-transparente para dar o efeito de vidro */
             background: rgba(15, 23, 42, 0.45); 
-            /* Efeito de desfoque/embaçado do fundo atrás da caixa */
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             padding: 35px 30px; 
@@ -74,9 +71,12 @@
         
         /* ESTRUTURA DOS CARDS */
         .todo-item { display: flex; flex-direction: column; gap: 12px; padding: 15px; border-bottom: 1px solid #334155; background: #0f172a; margin-bottom: 12px; border-radius: 8px; border-left: 5px solid #38bdf8; }
+        .todo-item.atrasado { border-left-color: #f43f5e; }
         .todo-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
         .todo-header h4 { font-size: 16px; color: #f8fafc; }
         
+        .tag-atrasado { background-color: #f43f5e; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: bold; }
+
         /* TÓPICOS */
         .topicos-container { display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
         .topico-item { display: flex; justify-content: space-between; align-items: center; background: #1e293b; padding: 8px 12px; border-radius: 6px; border: 1px solid #334155; }
@@ -147,7 +147,7 @@
         </div>
     </div>
 
-    <!-- FORMULÁRIO DE TAREFAS -->
+    <!-- FORMULÁRIOS -->
     <div class="card">
         <h2>📝 Nova Atividade Principal</h2>
         <form id="formAgenda" onsubmit="adicionarTarefa(event)">
@@ -289,22 +289,32 @@
         document.getElementById("btnLoginAction").innerText = "Entrar no Sistema";
     }
 
+    function formatarDataBR(strData) {
+        const partes = strData.split("-");
+        return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : strData;
+    }
+
     function renderizarAgenda() {
         const dataInput = document.getElementById("agendaData").value; 
         if (!dataInput) return;
 
-        const partes = dataInput.split("-");
-        if (partes.length === 3) {
-            document.getElementById("agendaDataSelecionada").innerText = `${partes[2]}/${partes[1]}/${partes[0]}`;
-        }
+        document.getElementById("agendaDataSelecionada").innerText = formatarDataBR(dataInput);
 
         const lista = document.getElementById("listaTarefas"); 
         lista.innerHTML = "";
 
+        // LÓGICA DE EXIBIÇÃO: Tarefas do dia atual OU tarefas anteriores pendentes
         const tarefasDia = bancoDadosAgenda.filter(t => {
-            const dataBate = t.data === dataInput;
             const usuarioBate = String(t.usuarioResponsavel).toLowerCase() === usuarioLogadoNome.toLowerCase();
-            return dataBate && usuarioBate;
+            if (!usuarioBate) return false;
+
+            const dataExata = t.data === dataInput;
+            const dataAnterior = t.data < dataInput;
+
+            // Se for de dia anterior, só exibe se contiver pelo menos um tópico pendente/andamento
+            const temPendente = t.topicos && t.topicos.some(top => top.status === 'pendente' || top.status === 'andamento');
+
+            return dataExata || (dataAnterior && temPendente);
         });
 
         let totalAFazer = 0;
@@ -315,8 +325,9 @@
             lista.innerHTML = `<p style="color:#94a3b8; text-align:center; padding: 25px 0;">Nenhuma atividade agendada para este dia.</p>`;
         } else {
             tarefasDia.forEach(t => {
+                const ehAtrasado = t.data < dataInput;
                 const div = document.createElement("div"); 
-                div.className = `todo-item`;
+                div.className = `todo-item ${ehAtrasado ? 'atrasado' : ''}`;
                 
                 let htmlTopicos = "";
                 if (t.topicos && t.topicos.length > 0) {
@@ -341,9 +352,11 @@
                     htmlTopicos = `<p style="font-size:12px; color:#64748b;">Nenhum tópico adicionado.</p>`;
                 }
 
+                const avisoDataAnterior = ehAtrasado ? `<span class="tag-atrasado">Pendente desde ${formatarDataBR(t.data)}</span>` : '';
+
                 div.innerHTML = `
                     <div class="todo-header">
-                        <h4>📌 ${escapeHTML(t.titulo)}</h4>
+                        <h4>📌 ${escapeHTML(t.titulo)} ${avisoDataAnterior}</h4>
                         <button class="btn-danger" onclick="removerTarefa('${t.id}')">❌ Excluir Tarefa</button>
                     </div>
                     
