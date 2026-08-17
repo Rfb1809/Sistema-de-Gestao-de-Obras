@@ -451,7 +451,7 @@
                     const canvas = document.createElement('canvas');
                     let largura = img.width;
                     let altura = img.height;
-                    const maxDimensao = 1000; // Reduz fotos gigantes da câmera para no máximo 1000px
+                    const maxDimensao = 1200; // Resolução ampliada para manter nitidez em impressão A4
 
                     if (largura > maxDimensao || altura > maxDimensao) {
                         if (largura > altura) {
@@ -468,8 +468,8 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, largura, altura);
 
-                    // Converte para JPEG com qualidade leve (0.7)
-                    imagemTemporariaBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    // Converte para JPEG mantendo boa relação de tamanho/qualidade (0.8)
+                    imagemTemporariaBase64 = canvas.toDataURL('image/jpeg', 0.8);
                 };
                 img.src = e.target.result;
             };
@@ -623,15 +623,15 @@
             let htmlAnexos = `
                 <div class="page-break"></div>
                 <h3 style="color:#0284c7; border-bottom:2px solid #cbd5e1; padding-bottom:6px; font-size:15px; margin-top:20px; margin-bottom:20px; font-weight:bold;">📸 COMPROVANTES E RECIBOS ANEXADOS (${itensComFoto.length})</h3>
-                <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:20px;">
+                <div style="display:flex; flex-direction:column; gap:25px;">
             `;
 
             itensComFoto.forEach((item, index) => {
                 htmlAnexos += `
-                    <div class="anexo-card" style="border:1px solid #cbd5e1; padding:10px; border-radius:6px; text-align:center; background:#f8fafc;">
-                        <p style="font-size:11px; color:#475569; margin-bottom:8px; font-weight:bold;">#${index + 1} — ${item.data.toLocaleDateString("pt-BR")} | ${item.categoria}</p>
-                        <p style="font-size:10px; color:#64748b; margin-bottom:8px;">${item.descricao} - <strong>R$ ${item.valor.toFixed(2).replace(".", ",")}</strong></p>
-                        <img src="${item.imagem}" style="width:100%; max-height:280px; object-fit:contain; border-radius:4px; border:1px solid #e2e8f0;">
+                    <div class="anexo-card" style="border:1px solid #cbd5e1; padding:12px; border-radius:6px; text-align:center; background:#f8fafc; page-break-inside:avoid;">
+                        <p style="font-size:12px; color:#475569; margin-bottom:4px; font-weight:bold;">#${index + 1} — ${item.data.toLocaleDateString("pt-BR")} | ${item.categoria}</p>
+                        <p style="font-size:11px; color:#64748b; margin-bottom:8px;">${item.descricao} - <strong>R$ ${item.valor.toFixed(2).replace(".", ",")}</strong></p>
+                        <img src="${item.imagem}" style="width:100%; max-height:480px; object-fit:contain; border-radius:4px; border:1px solid #e2e8f0; background:#fff;">
                     </div>`;
             });
 
@@ -639,7 +639,6 @@
             anexosDiv.innerHTML = htmlAnexos;
         }
 
-        // Aguarda 300ms para liberar a renderização no celular sem travar
         setTimeout(() => {
             window.print();
         }, 300);
