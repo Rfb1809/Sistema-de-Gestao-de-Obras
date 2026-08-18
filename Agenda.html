@@ -8,13 +8,32 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: '-apple-system', BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        body { background-color: #121824; color: #f8fafc; padding: 15px; }
-        .container { max-width: 900px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 25px; color: #38bdf8; position: relative; }
+        body { background-color: #121824; color: #f8fafc; padding: 20px; }
+        
+        /* ESTRUTURA PRINCIPAL (DASHBOARD 3 COLUNAS) */
+        .app-layout {
+            display: grid;
+            grid-template-columns: 260px 1fr 320px;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 1200px) {
+            .app-layout { grid-template-columns: 220px 1fr; }
+            .sidebar-right { grid-column: span 2; }
+        }
+
+        @media (max-width: 850px) {
+            .app-layout { grid-template-columns: 1fr; }
+            .sidebar-right { grid-column: span 1; }
+        }
+
+        header { grid-column: 1 / -1; text-align: center; margin-bottom: 10px; color: #38bdf8; position: relative; }
         header h1 { font-size: 26px; margin-bottom: 5px; }
         header p { font-size: 14px; color: #94a3b8; margin-bottom: 15px; }
         
-        /* TELA DE LOGIN: IMAGEM VIVA + VIDRO EMBACADO TRANSPARENTE */
+        /* TELA DE LOGIN */
         #tela-login { 
             position: fixed; 
             top: 0; 
@@ -41,39 +60,45 @@
             max-width: 360px; 
             box-shadow: 0 20px 40px rgba(0,0,0,0.5); 
         }
-        .login-box h2 { text-align: center; color: #38bdf8; margin-bottom: 20px; font-size: 22px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .login-box h2 { text-align: center; color: #38bdf8; margin-bottom: 20px; font-size: 22px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); border: none; }
         .login-box label { text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
         .login-box input { background-color: rgba(15, 23, 42, 0.6) !important; border-color: rgba(255, 255, 255, 0.2); }
         .login-box input:focus { border-color: #38bdf8; }
         .login-box button { width: 100%; background: #0284c7; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 15px; transition: background 0.2s; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4); }
         .login-box button:hover { background: #0369a1; }
 
-        .actions-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .actions-bar { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
         .btn-save-cloud { background-color: #0284c7; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
         .btn-logoff { background-color: #e11d48; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
 
         .card { background: #1e293b; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 20px; border: 1px solid #334155; }
-        h2 { font-size: 18px; margin-bottom: 15px; color: #f1f5f9; border-bottom: 2px solid #334155; padding-bottom: 6px; }
+        h2 { font-size: 16px; margin-bottom: 15px; color: #f1f5f9; border-bottom: 2px solid #334155; padding-bottom: 6px; }
 
-        /* DASHBOARD */
-        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 15px; }
-        .kpi-card { background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; text-align: center; }
+        /* DASHBOARD & KPIs */
+        .dashboard-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        .kpi-card { background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
         .kpi-card span { font-size: 12px; color: #94a3b8; font-weight: bold; text-transform: uppercase; }
-        .kpi-card h3 { font-size: 28px; font-weight: bold; margin-top: 5px; border: none; padding: 0; }
+        .kpi-card h3 { font-size: 22px; font-weight: bold; border: none; padding: 0; }
         
-        .chart-wrapper { height: 200px; position: relative; margin-top: 10px; }
+        .chart-wrapper { height: 180px; position: relative; margin-top: 10px; }
 
+        /* NAVEGAÇÃO / SIDEBAR ESQUERDA */
+        .menu-nav { display: flex; flex-direction: column; gap: 8px; }
+        .nav-btn { background: #0f172a; color: #94a3b8; border: 1px solid #334155; padding: 10px 14px; border-radius: 8px; text-align: left; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; }
+        .nav-btn:hover, .nav-btn.active { background: #0284c7; color: #fff; border-color: #38bdf8; }
+
+        /* FORMULÁRIOS & CAMPOS */
         .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 15px; }
         .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
         label { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
-        input[type="text"], input[type="password"], input[type="date"], textarea { padding: 10px; font-size: 15px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 8px; width: 100%; outline: none; transition: border-color 0.2s; }
+        input[type="text"], input[type="password"], input[type="date"], textarea { padding: 10px; font-size: 14px; background-color: #0f172a; color: #fff; border: 1px solid #475569; border-radius: 8px; width: 100%; outline: none; transition: border-color 0.2s; }
         input:focus, textarea:focus { border-color: #38bdf8; }
         
-        /* ESTRUTURA DOS CARDS */
+        /* CARDS DE TAREFA */
         .todo-item { display: flex; flex-direction: column; gap: 12px; padding: 15px; border-bottom: 1px solid #334155; background: #0f172a; margin-bottom: 12px; border-radius: 8px; border-left: 5px solid #38bdf8; }
         .todo-item.atrasado { border-left-color: #f43f5e; }
         .todo-header { display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
-        .todo-header h4 { font-size: 16px; color: #f8fafc; }
+        .todo-header h4 { font-size: 15px; color: #f8fafc; }
         
         .tag-atrasado { background-color: #f43f5e; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: bold; }
 
@@ -83,7 +108,7 @@
         .topico-item.executado span { text-decoration: line-through; color: #10b981; }
         .topico-item.andamento span { color: #f59e0b; }
         .topico-item.pendente span { color: #f8fafc; }
-        .topico-texto { font-size: 14px; flex-grow: 1; margin-right: 10px; word-break: break-word; }
+        .topico-texto { font-size: 13px; flex-grow: 1; margin-right: 10px; word-break: break-word; }
         
         .add-topico-box { display: flex; gap: 8px; margin-top: 10px; }
         .add-topico-box input { flex-grow: 1; padding: 8px; font-size: 13px; }
@@ -113,7 +138,7 @@
     </div>
 </div>
 
-<div class="container">
+<div class="app-layout">
     <header>
         <h1>Agenda Conectada ao Google Drive</h1>
         <p>Usuário Ativo: <strong id="usuarioLogadoTitulo" style="color: #38bdf8;">-</strong></p>
@@ -125,57 +150,92 @@
         <div id="syncStatus" class="sync-status"></div>
     </header>
 
-    <!-- RESUMO / DASHBOARD -->
-    <div class="card">
-        <h2>📊 Resumo das Atividades do Dia</h2>
-        <div class="dashboard-grid">
-            <div class="kpi-card" style="border-left: 4px solid #f43f5e;">
-                <span>🔴 A Fazer (Pendente)</span>
-                <h3 id="kpiAFazer" style="color: #f43f5e;">0</h3>
+    <!-- COLUNA ESQUERDA: NAVEGAÇÃO E FILTROS -->
+    <aside class="sidebar-left">
+        <div class="card">
+            <h2>📌 Filtros Rápidos</h2>
+            <nav class="menu-nav">
+                <button class="nav-btn active" onclick="filtrarStatus('todos', this)">📋 Todos os Tópicos</button>
+                <button class="nav-btn" onclick="filtrarStatus('pendente', this)">🔴 Pendentes</button>
+                <button class="nav-btn" onclick="filtrarStatus('andamento', this)">⏳ Em Andamento</button>
+                <button class="nav-btn" onclick="filtrarStatus('executado', this)">🟢 Concluídos</button>
+            </nav>
+        </div>
+
+        <div class="card">
+            <h2>🏢 Projetos / Clientes</h2>
+            <nav class="menu-nav">
+                <button class="nav-btn" onclick="alert('Filtro por tag em desenvolvimento')">🏗️ P&G</button>
+                <button class="nav-btn" onclick="alert('Filtro por tag em desenvolvimento')">🔬 Daiichi Sankyo</button>
+                <button class="nav-btn" onclick="alert('Filtro por tag em desenvolvimento')">🏛️ IURD</button>
+                <button class="nav-btn" onclick="alert('Filtro por tag em desenvolvimento')">♾️ Unlimited</button>
+            </nav>
+        </div>
+    </aside>
+
+    <!-- COLUNA CENTRAL: CRIAR & LISTAR TAREFAS -->
+    <main class="main-content">
+        <!-- FORMULÁRIO -->
+        <div class="card">
+            <h2>📝 Nova Atividade Principal</h2>
+            <form id="formAgenda" onsubmit="adicionarTarefa(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data da Atividade</label>
+                        <input type="date" id="agendaData" required onchange="renderizarAgenda()">
+                    </div>
+                    <div class="form-group">
+                        <label>Título Principal</label>
+                        <input type="text" id="agendaTitulo" placeholder="Ex: Inspeção no Prédio A" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Primeiro Tópico / Subtarefa (Opcional)</label>
+                        <input type="text" id="agendaPrimeiroTopico" placeholder="Ex: Verificar iluminação de emergência">
+                    </div>
+                </div>
+                <button type="submit" id="btnSalvar" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Criar Tarefa</button>
+            </form>
+        </div>
+
+        <!-- LISTA DE TAREFAS -->
+        <div class="card">
+            <h2>📋 Atividades Agendadas para <span id="agendaDataSelecionada" style="color:#38bdf8"></span></h2>
+            <div id="listaTarefas" style="margin-top: 15px;"></div>
+        </div>
+    </main>
+
+    <!-- COLUNA DIREITA: PAINEL DE MÉTRICAS E RESUMO -->
+    <aside class="sidebar-right">
+        <!-- DASHBOARD METRICAS -->
+        <div class="card">
+            <h2>📊 Métricas do Dia</h2>
+            <div class="dashboard-grid">
+                <div class="kpi-card" style="border-left: 4px solid #f43f5e;">
+                    <span>🔴 A Fazer</span>
+                    <h3 id="kpiAFazer" style="color: #f43f5e;">0</h3>
+                </div>
+                <div class="kpi-card" style="border-left: 4px solid #f59e0b;">
+                    <span>🟡 Em Andamento</span>
+                    <h3 id="kpiAndamento" style="color: #f59e0b;">0</h3>
+                </div>
+                <div class="kpi-card" style="border-left: 4px solid #10b981;">
+                    <span>🟢 Concluído</span>
+                    <h3 id="kpiConcluido" style="color: #10b981;">0</h3>
+                </div>
             </div>
-            <div class="kpi-card" style="border-left: 4px solid #f59e0b;">
-                <span>🟡 Em Andamento</span>
-                <h3 id="kpiAndamento" style="color: #f59e0b;">0</h3>
-            </div>
-            <div class="kpi-card" style="border-left: 4px solid #10b981;">
-                <span>🟢 Concluído / Resolvido</span>
-                <h3 id="kpiConcluido" style="color: #10b981;">0</h3>
+            <div class="chart-wrapper">
+                <canvas id="chartStatusAgenda"></canvas>
             </div>
         </div>
-        <div class="chart-wrapper">
-            <canvas id="chartStatusAgenda"></canvas>
+
+        <!-- NOTAS RÁPIDAS -->
+        <div class="card">
+            <h2>📌 Anotações Rápidas</h2>
+            <textarea placeholder="Espaço livre para anotações temporárias..." style="height: 120px; resize: vertical;"></textarea>
         </div>
-    </div>
-
-    <!-- FORMULÁRIOS -->
-    <div class="card">
-        <h2>📝 Nova Atividade Principal</h2>
-        <form id="formAgenda" onsubmit="adicionarTarefa(event)">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Data da Atividade</label>
-                    <input type="date" id="agendaData" required onchange="renderizarAgenda()">
-                </div>
-                <div class="form-group">
-                    <label>Título Principal</label>
-                    <input type="text" id="agendaTitulo" placeholder="Ex: Inspeção no Prédio A" required>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group" style="grid-column: span 2;">
-                    <label>Primeiro Tópico / Subtarefa (Opcional)</label>
-                    <input type="text" id="agendaPrimeiroTopico" placeholder="Ex: Verificar iluminação de emergência">
-                </div>
-            </div>
-            <button type="submit" id="btnSalvar" class="btn-success" style="font-weight: bold; width: 100%; padding: 12px; font-size: 14px;">+ Criar Tarefa</button>
-        </form>
-    </div>
-
-    <!-- LISTA DE TAREFAS -->
-    <div class="card">
-        <h2>📋 Atividades Agendadas para <span id="agendaDataSelecionada" style="color:#38bdf8"></span></h2>
-        <div id="listaTarefas" style="margin-top: 15px;"></div>
-    </div>
+    </aside>
 </div>
 
 <script>
@@ -184,6 +244,7 @@
     let usuarioLogadoNome = "";
     let bancoDadosAgenda = [];
     let meuGrafico = null;
+    let filtroStatusAtual = 'todos';
 
     async function checarLogin() {
         const u = document.getElementById("userInput").value.trim();
@@ -294,6 +355,13 @@
         return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : strData;
     }
 
+    function filtrarStatus(status, btn) {
+        filtroStatusAtual = status;
+        document.querySelectorAll('.menu-nav .nav-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        renderizarAgenda();
+    }
+
     function renderizarAgenda() {
         const dataInput = document.getElementById("agendaData").value; 
         if (!dataInput) return;
@@ -303,7 +371,6 @@
         const lista = document.getElementById("listaTarefas"); 
         lista.innerHTML = "";
 
-        // LÓGICA DE EXIBIÇÃO: Tarefas do dia atual OU tarefas anteriores pendentes
         const tarefasDia = bancoDadosAgenda.filter(t => {
             const usuarioBate = String(t.usuarioResponsavel).toLowerCase() === usuarioLogadoNome.toLowerCase();
             if (!usuarioBate) return false;
@@ -311,7 +378,6 @@
             const dataExata = t.data === dataInput;
             const dataAnterior = t.data < dataInput;
 
-            // Se for de dia anterior, só exibe se contiver pelo menos um tópico pendente/andamento
             const temPendente = t.topicos && t.topicos.some(top => top.status === 'pendente' || top.status === 'andamento');
 
             return dataExata || (dataAnterior && temPendente);
@@ -335,6 +401,9 @@
                         if (top.status === 'executado') totalConcluido++;
                         else if (top.status === 'andamento') totalAndamento++;
                         else totalAFazer++;
+
+                        // Aplicar filtro visual rápido
+                        if (filtroStatusAtual !== 'todos' && top.status !== filtroStatusAtual) return;
 
                         htmlTopicos += `
                             <div class="topico-item ${top.status}">
@@ -362,7 +431,7 @@
                     
                     <label style="margin-top:5px;">Tópicos / Detalhamento:</label>
                     <div class="topicos-container">
-                        ${htmlTopicos}
+                        ${htmlTopicos || '<p style="font-size:12px; color:#64748b;">Nenhum tópico com este filtro.</p>'}
                     </div>
 
                     <div class="add-topico-box">
@@ -391,7 +460,7 @@
         meuGrafico = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['A Fazer (Pendente)', 'Em Andamento', 'Concluído / Resolvido'],
+                labels: ['A Fazer', 'Em Andamento', 'Concluído'],
                 datasets: [{
                     data: [aFazer, andamento, concluido],
                     backgroundColor: ['#f43f5e', '#f59e0b', '#10b981'],
@@ -406,7 +475,7 @@
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: { color: '#f8fafc', font: { size: 12 } }
+                        labels: { color: '#f8fafc', font: { size: 11 } }
                     }
                 }
             }
